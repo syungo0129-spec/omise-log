@@ -1590,7 +1590,7 @@ async function runSearch() {
   try {
     const list = await searchPlaces(q);
     if (!$('#addDlg').open) return;
-    showResults(list, '見つかりませんでした。地名を足す（例: 店名 栄）か、下の「リンクを貼る・自分で入力する」から登録できます');
+    showResults(list, '見つかりませんでした。新しいお店や小さなお店は「Googleマップでさがす」から登録できます');
     if (!list.length) { $('#addName').value = q; updateAddPreview(false); $('#addAlt').open = true; }
   } catch (e) {
     $('#addResults').innerHTML = '<div class="note">検索できませんでした。通信を確かめるか、下から登録してください</div>';
@@ -1641,7 +1641,8 @@ function openAdd(prefill) {
     <div class="grab"></div>
     <h2>お店を登録</h2>
     <form class="joined" id="addForm"><input class="inline-input" id="addQuery" type="search" placeholder="店名でさがす（例: コメダ 栄）" autocomplete="off" enterkeyhint="search"><button class="btn solid" id="addSearch">さがす</button></form>
-    <div><button class="btn small" id="addNear" type="button">いまいる場所の近くのお店を出す</button></div>
+    <div class="links"><button class="btn small" id="addNear" type="button">近くのお店を出す</button>
+      <a class="btn small" id="addGmaps" target="_blank" rel="noopener" href="https://www.google.com/maps/search/">Googleマップでさがす</a></div>
     <div id="addResults"></div>
     <details class="alt" id="addAlt"${prefill ? ' open' : ''}><summary>Googleマップのリンクを貼る・自分で入力する</summary><div class="alt-in">
       <div class="preview"><span id="addSeal" class="seal-wrap">${sealSvg('？', 'sub', 64, { inked: false })}</span>
@@ -1664,6 +1665,14 @@ function openAdd(prefill) {
 $('#addBody').addEventListener('submit', e => { e.preventDefault(); runSearch(); });
 $('#addBody').addEventListener('click', e => {
   if (e.target.id === 'addNear') return loadNearby();
+  if (e.target.id === 'addGmaps') {
+    // Googleマップ側で見つけてもらい、共有かリンクの貼り付けで戻ってくる
+    const q = $('#addQuery').value.trim();
+    e.target.href = q ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q) : 'https://www.google.com/maps/search/';
+    $('#addAlt').open = true;
+    $('#addHit').textContent = 'Googleマップでお店を開き、「共有」からリンクをコピーして下に貼り付けてください（iPhoneは共有 →「ごち印帖に追加」でも登録できます）';
+    return;
+  }
   const pick = e.target.closest('[data-pick]');
   if (!pick) return;
   const [i, status] = pick.dataset.pick.split(':');
