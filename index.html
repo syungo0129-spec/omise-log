@@ -233,11 +233,36 @@
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-  <!-- 判子のかすれ -->
-  <filter id="inkfx" x="-5%" y="-5%" width="110%" height="110%">
-    <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="7" result="n"/>
-    <feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -5 3.6" result="m"/>
-    <feComposite in="SourceGraphic" in2="m" operator="in"/>
+  <!-- 判子のインク: ふちのにじみ・かすれ・押しむら。seed 違いを3種用意して店ごとに変える -->
+  <filter id="inkfx0" x="-5%" y="-5%" width="110%" height="110%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.045" numOctaves="2" seed="3" result="warp"/>
+    <feDisplacementMap in="SourceGraphic" in2="warp" scale="2.4" xChannelSelector="R" yChannelSelector="G" result="rough"/>
+    <feTurbulence type="fractalNoise" baseFrequency="1.1" numOctaves="2" seed="7" result="grain"/>
+    <feColorMatrix in="grain" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -7 5.3" result="holes"/>
+    <feComposite in="rough" in2="holes" operator="in" result="speck"/>
+    <feTurbulence type="fractalNoise" baseFrequency="0.016" numOctaves="1" seed="11" result="press"/>
+    <feColorMatrix in="press" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -2.2 2.15" result="uneven"/>
+    <feComposite in="speck" in2="uneven" operator="in"/>
+  </filter>
+  <filter id="inkfx1" x="-5%" y="-5%" width="110%" height="110%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="2" seed="21" result="warp"/>
+    <feDisplacementMap in="SourceGraphic" in2="warp" scale="2.4" xChannelSelector="R" yChannelSelector="G" result="rough"/>
+    <feTurbulence type="fractalNoise" baseFrequency="1.15" numOctaves="2" seed="29" result="grain"/>
+    <feColorMatrix in="grain" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -7 5.3" result="holes"/>
+    <feComposite in="rough" in2="holes" operator="in" result="speck"/>
+    <feTurbulence type="fractalNoise" baseFrequency="0.014" numOctaves="1" seed="37" result="press"/>
+    <feColorMatrix in="press" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -2.2 2.15" result="uneven"/>
+    <feComposite in="speck" in2="uneven" operator="in"/>
+  </filter>
+  <filter id="inkfx2" x="-5%" y="-5%" width="110%" height="110%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="2" seed="43" result="warp"/>
+    <feDisplacementMap in="SourceGraphic" in2="warp" scale="2.4" xChannelSelector="R" yChannelSelector="G" result="rough"/>
+    <feTurbulence type="fractalNoise" baseFrequency="1.05" numOctaves="2" seed="53" result="grain"/>
+    <feColorMatrix in="grain" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -7 5.3" result="holes"/>
+    <feComposite in="rough" in2="holes" operator="in" result="speck"/>
+    <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="1" seed="61" result="press"/>
+    <feColorMatrix in="press" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -2.2 2.15" result="uneven"/>
+    <feComposite in="speck" in2="uneven" operator="in"/>
   </filter>
 </svg>
 
@@ -373,23 +398,53 @@ function sealChars(name) {
   const s = String(name || '').replace(/[\s　・ー()（）「」『』【】&＆'’.,、。!！?？\-]/g, '');
   if (!s) return ['？'];
   if (/^[\x20-\x7e]+$/.test(s)) return [s.slice(0, 2).toUpperCase()];
-  return [...s].slice(0, 4);
+  // 英字まじりの店名（CoCo壱番屋 など）は、かな・漢字だけで彫る
+  const kana = [...s].filter(c => !/[\x20-\x7e]/.test(c));
+  return (kana.length >= 2 ? kana : [...s]).slice(0, 4);
 }
+
+// 花形（12弁）の外枠。半径を波打たせた点列をあらかじめ作っておく
+const SCALLOP = (r => {
+  let d = '';
+  for (let i = 0; i <= 120; i++) {
+    const a = i / 120 * Math.PI * 2, rr = r + 2.6 * Math.cos(a * 12);
+    d += (i ? 'L' : 'M') + (50 + rr * Math.cos(a)).toFixed(1) + ' ' + (50 + rr * Math.sin(a)).toFixed(1);
+  }
+  return d + 'Z';
+})(44.5);
+const octagon = r => Array.from({ length: 8 }, (_, i) => {
+  const a = (i + .5) / 8 * Math.PI * 2;
+  return (50 + r * Math.cos(a)).toFixed(1) + ',' + (50 + r * Math.sin(a)).toFixed(1);
+}).join(' ');
+
+// 判子の形。solid は白抜き（陰刻）で、文字が紙の色になる
+const SEAL_SHAPES = [
+  { outer: w => `<circle cx="50" cy="50" r="45.500" ${w}/>`, inner: '<circle cx="50" cy="50" r="39.500"/>' },
+  { outer: w => `<rect x="5.500" y="5.500" width="89" height="89" rx="13" ${w}/>`, inner: '<rect x="11.500" y="11.500" width="77" height="77" rx="8"/>' },
+  { outer: w => `<circle cx="50" cy="50" r="47" ${w}/>`, inner: '<circle cx="50" cy="50" r="41.500"/>', solid: true },
+  { outer: w => `<path d="${SCALLOP}" ${w}/>`, inner: '<circle cx="50" cy="50" r="37.500"/>', tight: true },
+  { outer: w => `<rect x="4" y="4" width="92" height="92" rx="15" ${w}/>`, inner: '<rect x="9.500" y="9.500" width="81" height="81" rx="10"/>', solid: true },
+  { outer: w => `<polygon points="${octagon(48)}" ${w}/>`, inner: `<polygon points="${octagon(42)}"/>` }
+];
 
 function sealSvg(name, ink, size, opt) {
   opt = opt || {};
-  const chars = sealChars(name), h = hash(name), shape = h % 3, inked = opt.inked !== false;
-  const t = (c, x, y, s) => `<text x="${x}" y="${y}" font-size="${s}" text-anchor="middle" dominant-baseline="central">${esc(c)}</text>`;
+  const chars = sealChars(name), h = hash(name), shape = SEAL_SHAPES[h % SEAL_SHAPES.length];
+  const inked = opt.inked !== false, solid = inked && shape.solid, k = shape.tight ? .9 : 1;
+  const P = v => 50 + (v - 50) * k; // 花形など内側が狭い枠では文字を中心へ寄せる
+  const t = (c, x, y, s, sy) => `<text transform="translate(${P(x)} ${P(y)}) scale(1 ${sy || 1})" font-size="${s * k}" text-anchor="middle" dominant-baseline="central">${esc(c)}</text>`;
   let text;
-  if (chars.length === 1) text = t(chars[0], 50, 51, chars[0].length > 1 ? 40 : 56);
-  else if (chars.length === 2) text = t(chars[0], 50, 32, 34) + t(chars[1], 50, 69, 34);
-  else if (chars.length === 3) text = t(chars[0], 50, 26, 23) + t(chars[1], 50, 50, 23) + t(chars[2], 50, 74, 23);
-  else text = t(chars[0], 66, 34, 28) + t(chars[1], 66, 67, 28) + t(chars[2], 34, 34, 28) + t(chars[3], 34, 67, 28);
-  const dash = inked ? '' : ' stroke-dasharray="7 6"';
-  const frame = shape === 0 ? `<circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" stroke-width="5"${dash}/>`
-    : shape === 1 ? `<rect x="7" y="7" width="86" height="86" rx="17" fill="none" stroke="currentColor" stroke-width="5"${dash}/>`
-    : `<circle cx="50" cy="50" r="46" fill="none" stroke="currentColor" stroke-width="2.5"${dash}/><circle cx="50" cy="50" r="40" fill="none" stroke="currentColor" stroke-width="1.5"${dash}/>`;
-  return `<svg class="seal${inked ? '' : ' blank'}" viewBox="0 0 100 100" width="${size}" height="${size}" style="color:var(--${inked ? ink : 'sub'});transform:rotate(${h % 13 - 6}deg)" aria-hidden="true"><g fill="currentColor" font-family="'Zen Antique','Hiragino Mincho ProN','Yu Mincho',serif"${opt.fx ? ' filter="url(#inkfx)"' : ''}>${frame}${text}</g></svg>`;
+  if (chars.length === 1) text = t(chars[0], 50, 51, chars[0].length > 1 ? 40 : 58);
+  else if (chars.length === 2) text = t(chars[0], 50, 31, 36) + t(chars[1], 50, 69, 36);
+  // 3文字は実際の印章と同じく、右に1文字を縦長に、左に2文字
+  else if (chars.length === 3) text = t(chars[0], 67, 51, 30, 1.9) + t(chars[1], 34, 33, 30) + t(chars[2], 34, 68, 30);
+  else text = t(chars[0], 67, 33, 30) + t(chars[1], 67, 68, 30) + t(chars[2], 33, 33, 30) + t(chars[3], 33, 68, 30);
+  const frame = !inked ? shape.outer('fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="6 6"')
+    : solid ? shape.outer('fill="currentColor"') + `<g fill="none" stroke="var(--card)" stroke-width="1.300">${shape.inner}</g>`
+    : shape.outer('fill="none" stroke="currentColor" stroke-width="4.500"') + `<g fill="none" stroke="currentColor" stroke-width="1.300">${shape.inner}</g>`;
+  const paint = solid ? 'var(--card)' : 'currentColor';
+  const fx = inked && opt.fx !== false ? ` filter="url(#inkfx${h % 3})"` : '';
+  return `<svg class="seal${inked ? '' : ' blank'}" viewBox="0 0 100 100" width="${size}" height="${size}" style="color:var(--${inked ? ink : 'sub'});transform:rotate(${h % 13 - 6}deg)" aria-hidden="true"><g${fx}>${frame}<g fill="${paint}" stroke="${paint}" stroke-width=".7" stroke-linejoin="round" font-family="'Zen Antique','Hiragino Mincho ProN','Yu Mincho',serif">${text}</g></g></svg>`;
 }
 const sealOf = (p, size, opt) => sealSvg(p.name, inkOf(p), size, Object.assign({ inked: p.status !== 'want' }, opt));
 
@@ -784,7 +839,7 @@ function renderMap() {
   const pts = [];
   S.places.filter(p => p.lat != null && p.lng != null).forEach(p => {
     const c = (idx[p.id] || {}).count || 0;
-    const icon = L.divIcon({ className: '', iconSize: [44, 44], iconAnchor: [22, 22], html: `<div class="pin">${sealOf(p, 34)}${c ? `<b>${c}</b>` : ''}</div>` });
+    const icon = L.divIcon({ className: '', iconSize: [44, 44], iconAnchor: [22, 22], html: `<div class="pin">${sealOf(p, 34, { fx: false })}${c ? `<b>${c}</b>` : ''}</div>` });
     L.marker([p.lat, p.lng], { icon })
       .bindPopup(`<b>${esc(p.name)}</b><span>${c ? `累計 ${c} 回 · ${rankOf(c)}` : '行きたいお店'}</span>
         <span style="display:flex;gap:6px"><button class="btn stampbtn small" data-pop="visit" data-id="${esc(p.id)}">スタンプを押す</button>
