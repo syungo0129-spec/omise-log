@@ -199,7 +199,18 @@
   .leaflet-popup-content { font: 500 14px/1.5 var(--font-body); margin: 12px; display: grid; gap: 6px; }
 
   /* ---------- きろく ---------- */
-  #stats { display: grid; gap: 22px; }
+  #stats { display: grid; gap: 16px; }
+  .subtabs { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; display: flex; margin: 0 -16px; padding: 0 12px; background: var(--paper); border-bottom: 1px solid var(--line); }
+  .subtabs button { flex: 1; padding: 9px 2px 8px; margin-bottom: -1px; border-bottom: 3px solid transparent; color: var(--sub); font: 800 14px/1.3 var(--font-display); letter-spacing: .04em; white-space: nowrap; }
+  .subtabs button.on { color: var(--ink); border-bottom-color: var(--shu); }
+  .subtabs small { font: 700 10px/1 var(--font-body); margin-left: 3px; color: var(--sub); }
+  .statline { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--card); border: 1px solid var(--line); border-radius: 8px; }
+  .statline div { padding: 6px 4px 7px; text-align: center; font-size: 11px; color: var(--sub); }
+  .statline div + div { border-left: 1px solid var(--line); }
+  .statline b { display: block; font-size: 19px; font-weight: 900; line-height: 1.25; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .acts .btn { padding: 9px 6px; font-size: 13.5px; }
+  .steps { margin: 4px 0; padding-left: 20px; font-size: 13px; }
   .block { display: grid; gap: 10px; }
   .block h2 { font: 800 16px/1.4 var(--font-display); letter-spacing: .08em; margin: 0; display: flex; align-items: center; gap: 10px; }
   .block h2::after { content: ''; flex: 1; height: 1px; background: var(--line); }
@@ -227,13 +238,13 @@
   .wshape.l3 text { fill: var(--on-ink); }
   .wshape.sel path { stroke: var(--ink); stroke-width: 2.2; }
   .heat i.sel, .cols .col.sel i { outline: 2px solid var(--ink); outline-offset: 1px; }
-  .cols { display: grid; grid-template-columns: repeat(12, 1fr); gap: 2px; height: 120px; align-items: end; border-bottom: 1px solid var(--line); }
+  .cols { display: grid; grid-template-columns: repeat(12, 1fr); gap: 2px; height: 92px; align-items: end; border-bottom: 1px solid var(--line); }
   .col { height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 3px; cursor: pointer; }
   .col i { width: min(24px, 70%); border-radius: 4px 4px 0 0; background: var(--shu); min-height: 0; animation: grow .7s cubic-bezier(.2, .8, .2, 1) backwards; transform-origin: bottom; }
   .col span { font-size: 11px; font-weight: 700; }
   .colx { display: grid; grid-template-columns: repeat(12, 1fr); gap: 2px; font-size: 11px; color: var(--sub); text-align: center; font-variant-numeric: tabular-nums; }
   .readout { font-size: 13px; min-height: 20px; }
-  .rankrow { display: grid; grid-template-columns: 20px auto 1fr auto; gap: 10px; align-items: center; text-align: left; width: 100%; padding: 4px 0; }
+  .rankrow { display: grid; grid-template-columns: 18px auto 1fr auto; gap: 9px; align-items: center; text-align: left; width: 100%; padding: 2px 0; }
   .rankrow .no { font-weight: 900; color: var(--sub); text-align: center; }
   .rankrow .nm { min-width: 0; display: grid; gap: 4px; font-weight: 700; overflow-wrap: anywhere; }
   .rankrow .n { font-weight: 900; font-variant-numeric: tabular-nums; }
@@ -249,7 +260,7 @@
   .bdet summary b { font: 700 13px/1.6 var(--font-body); color: var(--sub); font-variant-numeric: tabular-nums; }
   .bdet .badges { padding: 4px 0 14px; }
   .bgroup { font: 800 13px/1.4 var(--font-display); letter-spacing: .06em; color: var(--sub); margin-top: 6px; }
-  .slot { border: 1px solid var(--line); background: var(--card); border-radius: 8px; box-shadow: var(--shadow); padding: 12px; display: flex; gap: 12px; align-items: center; min-height: 76px; }
+  .slot { border: 1px solid var(--line); background: var(--card); border-radius: 8px; box-shadow: var(--shadow); padding: 8px 12px; display: flex; gap: 12px; align-items: center; min-height: 68px; }
   .slot .who { flex: 1; min-width: 0; font-weight: 700; overflow-wrap: anywhere; }
   .slot.spin .who { animation: flick .09s linear infinite; }
   .slot.spin #slotSeal { animation: kuji .28s ease-in-out infinite; }
@@ -1228,51 +1239,64 @@ function renderStats() {
   const badges = badgeList(idx);
   const appUrl = S.appUrl || '';
 
-  $('#stats').innerHTML = `
-    <div class="block">
-      <div class="hero"><div class="hero-num">${S.visits.length}<small>回</small></div>
-        <div class="hero-side"><span class="hero-label">これまでに押した印</span><span class="hero-level">番付　${lv.title}</span>
-        <div class="meter"><i style="width:${lv.next ? (S.visits.length - lv.from) / (lv.next - lv.from) * 100 : 100}%"></i></div>
-        <span class="hero-label">${lv.next ? `あと${lv.next - S.visits.length}印で「${lv.nextTitle}」` : '最高位に到達'}</span></div></div>
-      <div class="tiles">
-        <div class="tile"><div class="v">${visited}</div><div class="l">行った店</div></div>
-        <div class="tile"><div class="v">${S.places.length - visited}</div><div class="l">行きたい店</div></div>
-        <div class="tile"><div class="v">${badges.filter(b => b.got).length}<small style="font-size:13px">/${badges.length}</small></div><div class="l">記念印</div></div>
+  // 記録は5つの小見出しに分け、1画面ぶんずつ見せる
+  const STABS = [['ayumi', 'あゆみ'], ['kane', 'お金'], ['tochi', '土地'], ['kinen', '記念印'], ['settei', '設定']];
+  const tab = STABS.some(t => t[0] === ui.stab) ? ui.stab : (ui.stab = 'ayumi');
+  const year = new Date().getFullYear();
+  const got = badges.filter(b => b.got).length;
+  const views = {
+    ayumi: () => `
+    <div class="hero month">
+      <span class="hero-num">${S.visits.length}<small>印</small></span>
+      <div class="hero-side">
+        <span class="hero-line"><span class="hero-label">これまでに押した印</span></span>
+        <span class="hero-line"><b class="hero-level">番付　${lv.title}</b><span class="hero-label">${lv.next ? `あと${lv.next - S.visits.length}印で「${lv.nextTitle}」` : '最高位に到達'}</span></span>
       </div>
+      <div class="meter"><i style="width:${lv.next ? (S.visits.length - lv.from) / (lv.next - lv.from) * 100 : 100}%"></i></div>
     </div>
-    ${reviewBlock()}
-    <div class="block"><h2>おみくじで決める</h2>
-      <div class="slot" id="slot"><span id="slotSeal">${sealSvg('？', 'sub', 52, { inked: false })}</span><span class="who" id="slotWho">行きたいお店から1軒えらびます</span>
-        <button class="btn solid" id="roulette">引く</button></div></div>
-    <div class="block"><h2>押印ごよみ（直近20週）</h2><div class="heat" id="heat" data-readout="#heatRead">${heat}</div><div class="readout note" id="heatRead">マスをタップするとその日の回数が出ます</div></div>
+    <div class="statline">
+      <div><b>${visited}</b>行ったお店</div>
+      <div><b>${S.places.length - visited}</b>行きたいお店</div>
+      <div><b>${S.visits.filter(v => v.date.startsWith(String(year))).length}</b>今年の印</div>
+    </div>
+    <div class="acts">
+      <button class="btn" id="roulette">おみくじで決める</button>
+      ${visitYears().length ? `<button class="btn" data-year="${visitYears()[0]}">${wareki(visitYears()[0])}をふりかえる</button>` : '<button class="btn" disabled>ふりかえりは印を押してから</button>'}
+    </div>
+    <div class="slot" id="slot" hidden><span id="slotSeal"></span><span class="who" id="slotWho"></span></div>
+    <div class="block"><h2>押印ごよみ</h2><div class="heat" id="heat" data-readout="#heatRead">${heat}</div><div class="readout note" id="heatRead">直近20週。マスをタップするとその日の回数が出ます</div></div>
     <div class="block"><h2>月ごとの印の数</h2><div class="cols" id="cols" data-readout="#colRead">${cols}</div>
       <div class="colx">${months.map(m => `<span>${Number(m.slice(5))}</span>`).join('')}</div><div class="readout note" id="colRead">棒をタップするとその月の回数が出ます</div></div>
-    ${moneyBlock(months)}
     <div class="block"><h2>行きつけ番付</h2>${ranking.length ? ranking.map(([p, n], i) => `<button class="rankrow" data-open="${esc(p.id)}">
-        <span class="no">${i + 1}</span>${sealOf(p, 40)}<span class="nm">${esc(p.name)}<span class="hbar" style="width:${n / rMax * 100}%;animation-delay:${i * 60}ms"></span></span><span class="n">${n}回</span></button>`).join('')
+        <span class="no">${i + 1}</span>${sealOf(p, 36)}<span class="nm">${esc(p.name)}<span class="hbar" style="width:${n / rMax * 100}%;animation-delay:${i * 60}ms"></span></span><span class="n">${n}回</span></button>`).join('')
       : '<div class="note">印を押すとここにランキングが出ます</div>'}</div>
-    ${genres.length ? `<div class="block"><h2>ジャンル別の印の数</h2>${genres.map(([g, n], i) => `<div class="grow"><span>${esc(g)}</span><span><span class="hbar" style="display:block;width:${n / gMax * 100}%;animation-delay:${i * 50}ms"></span></span><span class="n">${n}</span></div>`).join('')}</div>` : ''}
-    ${wardBlock(idx)}
-    <div class="block"><h2>記念印　${badges.filter(b => b.got).length} / ${badges.length}</h2>
-      ${(() => {
-        const cell = b => `<div class="badge${b.got ? '' : ' locked'}">${sealSvg(b.ch, badgeInk(b), 56, { inked: b.got })}<b>${b.name}</b><span>${b.cond}</span></div>`;
-        const next = badges.filter(b => !b.got && b.left > 0).sort((a, b) => a.left - b.left).slice(0, 4);
-        return (next.length ? `<div class="bgroup">もうすぐ手に入る</div><div class="badges">${next.map(cell).join('')}</div>` : '') +
-          BADGE_GROUPS.map(([gid, label]) => {
-            const list = badges.filter(b => b.group === gid);
-            return `<details class="bdet"><summary><span>${label}</span><b>${list.filter(b => b.got).length} / ${list.length}</b></summary><div class="badges">${list.map(cell).join('')}</div></details>`;
-          }).join('');
-      })()}</div>
-    <details class="more"><summary>連携と設定</summary><div class="inner">
+    ${genres.length ? `<div class="block"><h2>ジャンル別の印の数</h2>${genres.map(([g, n], i) => `<div class="grow"><span>${esc(g)}</span><span><span class="hbar" style="display:block;width:${n / gMax * 100}%;animation-delay:${i * 50}ms"></span></span><span class="n">${n}</span></div>`).join('')}</div>` : ''}`,
+
+    kane: () => moneyBlock(months),
+
+    tochi: () => wardBlock(idx),
+
+    kinen: () => {
+      const cell = b => `<div class="badge${b.got ? '' : ' locked'}">${sealSvg(b.ch, badgeInk(b), 52, { inked: b.got })}<b>${b.name}</b><span>${b.cond}</span></div>`;
+      const next = badges.filter(b => !b.got && b.left > 0).sort((a, b) => a.left - b.left).slice(0, 4);
+      return `<div class="block"><h2>記念印　${got} / ${badges.length}</h2>
+        ${next.length ? `<div class="bgroup">もうすぐ手に入る</div><div class="badges">${next.map(cell).join('')}</div>` : ''}
+        ${BADGE_GROUPS.map(([gid, label]) => {
+          const list = badges.filter(b => b.group === gid);
+          return `<details class="bdet"><summary><span>${label}</span><b>${list.filter(b => b.got).length} / ${list.length}</b></summary><div class="badges">${list.map(cell).join('')}</div></details>`;
+        }).join('')}</div>`;
+    },
+
+    settei: () => `
       ${HAS_GAS ? '' : API_URL ? `<div class="block"><h2>ほかの端末で使う</h2>
         <div class="note">使いたい端末で下の設定用リンクを1回開くと、同じデータにつながります。データを読み書きできる鍵なので、他人には見せないでください。</div>
         <input class="copy" readonly value="${esc(appUrl + '#api=' + encodeURIComponent(API_URL))}" onclick="this.select()"></div>`
       : `<div class="block"><h2>データ保存先の設定</h2>
         <div class="note">いまはお試しモードです（この端末のブラウザにだけ保存）。Apps Script のウェブアプリURLを入れると、スプレッドシートに保存して端末間で同期します。</div>
         <div class="joined"><input class="inline-input" id="apiInput" placeholder="${API_PREFIX}…/exec"><button class="btn" id="apiSave">保存</button></div></div>`}
-      <div class="block"><h2>Googleマップからワンタップ登録</h2>
+      <div class="block"><h2>Googleマップから登録</h2>
         <div class="note"><b>iPhone</b>（ショートカットアプリで1回だけ作成）</div>
-        <ol>
+        <ol class="steps">
           <li>「ショートカット」アプリで新規作成し、名前を「ごち印帖に追加」にする</li>
           <li>ⓘ →「共有シートに表示」をオン（受け取る種類は URL とテキスト）</li>
           <li>アクション「URLエンコード」を追加（入力は「ショートカットの入力」）</li>
@@ -1281,13 +1305,15 @@ function renderStats() {
         <input class="copy" readonly value="${esc(appUrl)}?add=" onclick="this.select()">
         <div class="note">以後は Googleマップでお店を開き「共有 → ごち印帖に追加」で登録画面が開きます。</div>
         <div class="note"><b>パソコン</b>（ブックマークレット）：下の文字列をURLにしたブックマークを作り、Googleマップでお店を開いた状態でクリック</div>
-        <input class="copy" readonly value="${esc(`javascript:window.open('${appUrl}?add='+encodeURIComponent(location.href))`)}" onclick="this.select()"></div>
-    </div></details>`;
+        <input class="copy" readonly value="${esc(`javascript:window.open('${appUrl}?add='+encodeURIComponent(location.href))`)}" onclick="this.select()"></div>`
+  };
+  $('#stats').innerHTML = `<div class="subtabs" role="tablist">${STABS.map(([k, l]) => `<button role="tab" aria-selected="${k === tab}" class="${k === tab ? 'on' : ''}" data-stab="${k}">${l}${k === 'kinen' ? `<small>${got}</small>` : ''}</button>`).join('')}</div>${views[tab]()}`;
 }
 
 function spinRoulette() {
   const wants = S.places.filter(p => p.status === 'want');
   const who = $('#slotWho'), sealEl = $('#slotSeal'), slot = $('#slot');
+  slot.hidden = false;
   if (!wants.length) { who.textContent = '行きたいお店がまだありません。まず登録しよう'; return; }
   const pick = wants[Math.floor(Math.random() * wants.length)];
   const show = p => { who.textContent = p.name; sealEl.innerHTML = sealSvg(p.name, inkOf(p), 52, {}); };
@@ -1370,13 +1396,6 @@ const KAN = '〇一二三四五六七八九';
 const kan = n => n < 10 ? KAN[n] : (n < 20 ? '' : KAN[Math.floor(n / 10)]) + '十' + (n % 10 ? KAN[n % 10] : '');
 const wareki = y => y >= 2019 ? '令和' + (y === 2019 ? '元' : kan(y - 2018)) + '年' : '平成' + kan(y - 1988) + '年';
 const visitYears = () => [...new Set(S.visits.map(v => Number(v.date.slice(0, 4))))].sort((a, b) => b - a);
-
-function reviewBlock() {
-  const years = visitYears().slice(0, 3);
-  return `<div class="block"><h2>一年のふりかえり</h2>${years.length
-    ? `<div class="links">${years.map(y => `<button class="btn" data-year="${y}">${wareki(y)}をふりかえる</button>`).join('')}</div>`
-    : '<div class="note">印を押すと、その年のふりかえりがここから見られます</div>'}</div>`;
-}
 
 function openYear(year) {
   const ys = String(year), vs = S.visits.filter(v => v.date.startsWith(ys));
@@ -1646,7 +1665,10 @@ function switchTab(tab) {
   };
   const order = ['list', 'map', 'stats'];
   document.documentElement.dataset.dir = order.indexOf(tab) < order.indexOf(ui.tab) ? 'back' : 'fwd';
-  if (document.startViewTransition && !reduced) document.startViewTransition(go); else go();
+  if (document.startViewTransition && !reduced) {
+    const t = document.startViewTransition(go);
+    [t.ready, t.finished].forEach(p => p.catch(() => {}));
+  } else go();
 }
 
 document.querySelector('nav').addEventListener('click', e => {
@@ -1696,6 +1718,8 @@ $('#fitBtn').onclick = () => { if (map && mapPts.length) map.fitBounds(mapPts, {
 $('#stats').onclick = e => {
   const open = e.target.closest('[data-open]');
   if (open) return openDetail(open.dataset.open);
+  const st = e.target.closest('[data-stab]');
+  if (st) { ui.stab = st.dataset.stab; renderStats(); scrollTo(0, 0); return; }
   const yr = e.target.closest('[data-year]');
   if (yr) return openYear(Number(yr.dataset.year));
   if (e.target.id === 'roulette') return spinRoulette();
