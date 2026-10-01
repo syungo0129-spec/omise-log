@@ -4,34 +4,36 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>ごち印帖</title>
+<meta name="theme-color" content="#f3eee2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#191715" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="icon.png">
 <link rel="apple-touch-icon" href="icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Antique&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@700;800&family=Zen+Antique&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
-  /* レイアウト: スマホ幅1カラムの「スタンプ帳」。主役は店ごとの判子（インク5色）、まわりは静かな紙と墨 */
+  /* レイアウト: スマホ幅1カラムの「印帖」。生成りの和紙に墨の文字、主役は店ごとの判子（朱・藍・松葉・藤・柿の5色） */
   :root {
-    --paper: #eff2ee; --card: #fbfcfa; --ink: #15181c; --sub: #5f666c; --line: #d7dcd5; --wash: #e3e7e1;
-    --shu: #d43a29; --ai: #2647a2; --matsu: #23744a; --fuji: #7444a2; --kaki: #b9630c;
-    --on-ink: #fbfcfa; --star: #c98a00; --danger: #b3261e; --shadow: 0 1px 2px rgba(21, 24, 28, .06), 0 8px 24px rgba(21, 24, 28, .07);
-    --font-display: 'Dela Gothic One', 'Hiragino Sans', 'Yu Gothic UI', sans-serif;
+    --paper: #f3eee2; --card: #fbf8f0; --ink: #221e1a; --sub: #6e655a; --line: #d8cfbd; --wash: #e9e2d2;
+    --shu: #cf3a24; --ai: #234a8c; --matsu: #2c6b4a; --fuji: #75509b; --kaki: #b8620f;
+    --on-ink: #fbf8f0; --star: #a8843a; --kin: #a8843a; --danger: #b3261e; --shadow: 0 1px 0 rgba(34, 30, 26, .04), 0 4px 14px rgba(34, 30, 26, .06);
+    --font-display: 'Shippori Mincho B1', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
     --font-seal: 'Zen Antique', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
     --font-body: 'Zen Kaku Gothic New', -apple-system, 'Hiragino Sans', 'Yu Gothic UI', Meiryo, sans-serif;
     color-scheme: light;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --paper: #121418; --card: #1c1f24; --ink: #eef0ec; --sub: #9ba1a7; --line: #32363c; --wash: #262a30;
+      --paper: #191715; --card: #23201d; --ink: #efe9dc; --sub: #a59c8e; --line: #3a3530; --wash: #2c2824;
       --shu: #ff6f5c; --ai: #86a4ff; --matsu: #62c98d; --fuji: #c396f2; --kaki: #f0a34c;
-      --on-ink: #121418; --star: #f2b93b; --danger: #ff8a80; --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .35);
+      --on-ink: #191715; --star: #d2b06a; --kin: #d2b06a; --danger: #ff8a80; --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .35);
       color-scheme: dark;
     }
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; height: 100%; }
-  body { background: var(--paper); color: var(--ink); font: 500 15px/1.55 var(--font-body); -webkit-text-size-adjust: 100%; }
+  body { background: var(--paper) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='320'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5  0 0 0 0 .43  0 0 0 0 .32  0 0 0 .1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); color: var(--ink); font: 500 15px/1.55 var(--font-body); -webkit-text-size-adjust: 100%; }
   button, input, select, textarea { font: inherit; color: inherit; }
   button { cursor: pointer; border: 0; background: none; padding: 0; }
   :focus-visible { outline: 2px solid var(--ai); outline-offset: 2px; }
@@ -40,43 +42,50 @@
 
   /* ---------- ヘッダー ---------- */
   header { display: flex; align-items: baseline; gap: 10px; padding-top: calc(14px + env(safe-area-inset-top)); }
-  header h1 { font: 400 22px/1.2 var(--font-display); margin: 0; letter-spacing: .02em; }
+  header h1 { font: 800 22px/1.2 var(--font-display); margin: 0; letter-spacing: .1em; display: flex; align-items: center; gap: 9px; }
+  header h1 .mark { display: grid; place-items: center; width: 27px; height: 27px; border-radius: 4px; background: var(--shu); color: var(--card); font: 400 17px/1 var(--font-seal); letter-spacing: 0; transform: rotate(-5deg); }
   #sync { font-size: 12px; color: var(--sub); margin-left: auto; }
   #sync.error { color: var(--danger); text-decoration: underline; cursor: pointer; }
 
   /* ---------- 今月のまとめ ---------- */
-  .hero { display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center; }
+  .hero { display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center; padding: 14px 16px; border: 1px solid var(--line); border-radius: 8px; background-color: var(--card);
+    background-image: radial-gradient(circle at 100% 150%, var(--card) 24%, var(--wash) 24% 28%, var(--card) 28% 36%, var(--wash) 36% 40%, transparent 40%),
+      radial-gradient(circle at 0 150%, var(--card) 24%, var(--wash) 24% 28%, var(--card) 28% 36%, var(--wash) 36% 40%, transparent 40%),
+      radial-gradient(circle at 50% 100%, var(--wash) 10%, var(--card) 10% 23%, var(--wash) 23% 30%, var(--card) 30% 43%, var(--wash) 43% 50%, var(--card) 50% 63%, var(--wash) 63% 71%, transparent 71%),
+      radial-gradient(circle at 100% 50%, var(--wash) 5%, var(--card) 5% 15%, var(--wash) 15% 20%, var(--card) 20% 29%, var(--wash) 29% 34%, var(--card) 34% 44%, var(--wash) 44% 49%, transparent 49%),
+      radial-gradient(circle at 0 50%, var(--wash) 5%, var(--card) 5% 15%, var(--wash) 15% 20%, var(--card) 20% 29%, var(--wash) 29% 34%, var(--card) 34% 44%, var(--wash) 44% 49%, transparent 49%);
+    background-size: 44px 22px; }
   .hero-num { font-size: 56px; font-weight: 900; line-height: 1; letter-spacing: -.02em; }
   .hero-num small { font-size: 16px; font-weight: 700; margin-left: 2px; }
   .hero-side { display: grid; gap: 5px; min-width: 0; }
   .hero-label { font-size: 12px; color: var(--sub); }
-  .hero-level { font-weight: 700; }
-  .meter { height: 8px; border-radius: 4px; background: var(--wash); overflow: hidden; }
+  .hero-level { font: 800 17px/1.3 var(--font-display); letter-spacing: .06em; }
+  .meter { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
   .meter i { display: block; height: 100%; border-radius: 4px; background: var(--shu); transition: width .7s cubic-bezier(.2, .8, .2, 1); }
 
   /* ---------- 絞り込み ---------- */
-  .seg { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); background: var(--wash); border-radius: 14px; padding: 4px; }
-  .seg::before { content: ''; position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc((100% - 8px) / 3); border-radius: 10px; background: var(--card); box-shadow: var(--shadow); transform: translateX(calc(var(--i, 0) * 100%)); transition: transform .32s cubic-bezier(.3, 1.4, .5, 1); }
+  .seg { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); background: var(--wash); border-radius: 8px; padding: 4px; }
+  .seg::before { content: ''; position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc((100% - 8px) / 3); border-radius: 5px; background: var(--card); box-shadow: var(--shadow); transform: translateX(calc(var(--i, 0) * 100%)); transition: transform .32s cubic-bezier(.3, 1.4, .5, 1); }
   .seg button { position: relative; padding: 8px 0; font-weight: 700; font-size: 14px; color: var(--sub); transition: color .2s; }
   .seg button.on { color: var(--ink); }
   .seg button span { font-weight: 500; font-size: 12px; margin-left: 3px; }
   .finder { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
-  .finder input, .finder select { border: 1px solid var(--line); background: var(--card); border-radius: 12px; padding: 9px 12px; font-size: 16px; min-width: 0; }
+  .finder input, .finder select { border: 1px solid var(--line); background: var(--card); border-radius: 6px; padding: 9px 12px; font-size: 16px; min-width: 0; }
   .finder select { font-size: 13px; padding: 9px 6px; max-width: 128px; }
   .tags { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px; }
   .tags::-webkit-scrollbar { display: none; }
-  .chip { flex: none; border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 4px 12px; font-size: 13px; transition: transform .15s; }
+  .chip { flex: none; border: 1px solid var(--line); background: var(--card); border-radius: 4px; padding: 4px 12px; font-size: 13px; transition: transform .15s; }
   .chip:active { transform: scale(.94); }
   .chip.on { background: var(--ink); border-color: var(--ink); color: var(--on-ink); }
 
   /* ---------- お店カード ---------- */
   #list { display: grid; gap: 10px; }
-  .shop { display: grid; grid-template-columns: 1fr auto; align-items: center; background: var(--card); border-radius: 18px; box-shadow: var(--shadow); }
-  #list.enter .shop { animation: rise .45s cubic-bezier(.2, .8, .2, 1) backwards; animation-delay: calc(min(var(--n), 10) * 40ms); }
+  .shop { border: 1px solid var(--line); display: grid; grid-template-columns: 1fr auto; align-items: center; background: var(--card); border-radius: 8px; box-shadow: var(--shadow); }
+  #list.enter .shop { animation: nijimi .55s ease-out backwards; animation-delay: calc(min(var(--n), 10) * 40ms); }
   .shop.thud { animation: thud .4s ease-out; }
-  .shop-main { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: center; text-align: left; padding: 12px 4px 12px 12px; min-width: 0; border-radius: 18px; }
+  .shop-main { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: center; text-align: left; padding: 12px 4px 12px 12px; min-width: 0; border-radius: 8px; }
   .shop-text { display: grid; gap: 1px; min-width: 0; }
-  .shop-name { font-weight: 700; font-size: 16px; line-height: 1.35; overflow-wrap: anywhere; }
+  .shop-name { font-family: var(--font-display); font-weight: 800; font-size: 17px; letter-spacing: .03em; line-height: 1.35; overflow-wrap: anywhere; }
   .shop-meta { font-size: 12px; color: var(--sub); overflow-wrap: anywhere; }
   .shop-count { font-size: 13px; color: var(--sub); display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
   .shop-count b { font-size: 20px; font-weight: 900; color: var(--ink); line-height: 1.1; }
@@ -91,15 +100,15 @@
   .seal { display: block; }
   .seal.blank text { opacity: .45; }
   .seal-wrap.slam { animation: slam .55s cubic-bezier(.2, 1.5, .4, 1); }
-  .seal-wrap.slam::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid currentColor; animation: ripple .6s ease-out forwards; }
+  .seal-wrap.slam::after { content: ''; position: absolute; inset: -6px; border-radius: 50%; background: radial-gradient(circle, currentColor 0 35%, transparent 70%); filter: blur(7px); animation: ripple .9s ease-out forwards; pointer-events: none; }
   .empty { text-align: center; color: var(--sub); padding: 28px 8px; display: grid; gap: 12px; justify-items: center; }
   .empty b { color: var(--ink); font-size: 17px; }
 
   /* ---------- ボタン類 ---------- */
-  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--line); background: var(--card); border-radius: 12px; padding: 9px 14px; font-weight: 700; text-decoration: none; color: var(--ink); transition: transform .12s; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--line); background: var(--card); border-radius: 6px; padding: 9px 14px; font-weight: 700; text-decoration: none; color: var(--ink); transition: transform .12s; }
   .btn:active { transform: scale(.96); }
   .btn.solid { background: var(--ink); border-color: var(--ink); color: var(--on-ink); }
-  .btn.big { padding: 14px; font-size: 16px; border-radius: 16px; }
+  .btn.big { padding: 14px; font-size: 16px; border-radius: 8px; }
   .btn.small { padding: 5px 11px; font-size: 13px; }
   .btn.danger { color: var(--danger); }
   .btn.stampbtn { background: var(--shu); border-color: var(--shu); color: var(--on-ink); }
@@ -114,21 +123,22 @@
   nav #fab:active { transform: scale(.88) rotate(90deg); }
 
   /* ---------- マップ ---------- */
-  #map { height: calc(100dvh - 190px); min-height: 320px; border-radius: 18px; box-shadow: var(--shadow); z-index: 0; }
+  #map { height: calc(100dvh - 190px); min-height: 320px; border-radius: 8px; box-shadow: var(--shadow); z-index: 0; }
   .maptools { display: flex; gap: 8px; align-items: center; }
   .pin { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--card); box-shadow: 0 3px 10px rgba(0, 0, 0, .3); position: relative; }
   .pin b { position: absolute; right: -4px; top: -4px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; background: var(--ink); color: var(--on-ink); font: 700 11px/18px var(--font-body); text-align: center; }
-  .leaflet-popup-content-wrapper { background: var(--card); color: var(--ink); border-radius: 14px; }
+  .leaflet-popup-content-wrapper { background: var(--card); color: var(--ink); border-radius: 8px; }
   .leaflet-popup-tip { background: var(--card); }
   .leaflet-popup-content { font: 500 14px/1.5 var(--font-body); margin: 12px; display: grid; gap: 6px; }
 
   /* ---------- きろく ---------- */
   #stats { display: grid; gap: 22px; }
   .block { display: grid; gap: 10px; }
-  .block h2 { font-size: 15px; font-weight: 900; margin: 0; }
+  .block h2 { font: 800 16px/1.4 var(--font-display); letter-spacing: .08em; margin: 0; display: flex; align-items: center; gap: 10px; }
+  .block h2::after { content: ''; flex: 1; height: 1px; background: var(--line); }
   .note { font-size: 12.5px; color: var(--sub); }
   .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-  .tile { background: var(--card); border-radius: 16px; padding: 12px; box-shadow: var(--shadow); }
+  .tile { border: 1px solid var(--line); background: var(--card); border-radius: 8px; padding: 12px; box-shadow: var(--shadow); }
   .tile .v { font-size: 26px; font-weight: 900; line-height: 1.15; }
   .tile .l { font-size: 12px; color: var(--sub); }
   .heat { display: grid; grid-template-rows: repeat(7, 1fr); grid-auto-flow: column; grid-auto-columns: 1fr; gap: 3px; }
@@ -155,34 +165,35 @@
   .badge { display: grid; justify-items: center; gap: 3px; text-align: center; font-size: 11px; line-height: 1.3; }
   .badge b { font-size: 12px; }
   .badge.locked { color: var(--sub); }
-  .slot { background: var(--card); border-radius: 16px; box-shadow: var(--shadow); padding: 12px; display: flex; gap: 12px; align-items: center; min-height: 76px; }
+  .slot { border: 1px solid var(--line); background: var(--card); border-radius: 8px; box-shadow: var(--shadow); padding: 12px; display: flex; gap: 12px; align-items: center; min-height: 76px; }
   .slot .who { flex: 1; min-width: 0; font-weight: 700; overflow-wrap: anywhere; }
   .slot.spin .who { animation: flick .09s linear infinite; }
+  .slot.spin #slotSeal { animation: kuji .28s ease-in-out infinite; }
   details.more { border-top: 1px solid var(--line); padding-top: 12px; }
   details.more summary { font-weight: 700; cursor: pointer; }
   details.more .inner { display: grid; gap: 14px; padding-top: 12px; }
   details.more ol { margin: 4px 0; padding-left: 20px; font-size: 13px; }
-  .copy { width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); font: 12px ui-monospace, Consolas, monospace; }
+  .copy { width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: 5px; background: var(--card); font: 12px ui-monospace, Consolas, monospace; }
 
   /* ---------- シート（下から出るダイアログ） ---------- */
-  dialog.sheet { border: 0; padding: 0; margin: auto auto 0; width: 100%; max-width: 620px; max-height: 92dvh; border-radius: 26px 26px 0 0; background: var(--paper); color: var(--ink); overflow-y: auto; animation: sheetUp .38s cubic-bezier(.2, .9, .25, 1.05); }
+  dialog.sheet { border: 0; padding: 0; margin: auto auto 0; width: 100%; max-width: 620px; max-height: 92dvh; border-radius: 8px 14px 0 0; background: var(--paper); color: var(--ink); overflow-y: auto; animation: sheetUp .38s cubic-bezier(.2, .9, .25, 1.05); }
   dialog.sheet::backdrop { background: rgba(10, 12, 14, .5); animation: fade .25s; }
   dialog.sheet.closing { animation: sheetDown .2s ease-in forwards; }
   .sheet-body { padding: 10px 16px calc(20px + env(safe-area-inset-bottom)); display: grid; gap: 14px; }
   .grab { width: 40px; height: 5px; border-radius: 3px; background: var(--line); justify-self: center; }
-  .sheet h2 { font-size: 20px; font-weight: 900; margin: 0; line-height: 1.3; overflow-wrap: anywhere; }
+  .sheet h2 { font-family: var(--font-display); letter-spacing: .04em; font-size: 21px; font-weight: 800; margin: 0; line-height: 1.3; overflow-wrap: anywhere; }
   .field { display: grid; gap: 4px; }
   .field > span { font-size: 12px; color: var(--sub); }
-  .field input, .field select, .field textarea, .inline-input { width: 100%; min-width: 0; padding: 11px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); font-size: 16px; }
+  .field input, .field select, .field textarea, .inline-input { width: 100%; min-width: 0; padding: 11px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); font-size: 16px; }
   .field textarea { min-height: 70px; resize: vertical; }
   .joined { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
   .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .preview { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; background: var(--card); border-radius: 18px; padding: 14px; box-shadow: var(--shadow); min-height: 104px; }
-  .preview .pv-name { font-weight: 900; font-size: 17px; overflow-wrap: anywhere; }
+  .preview { border: 1px solid var(--line); display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; background: var(--card); border-radius: 8px; padding: 14px; box-shadow: var(--shadow); min-height: 104px; }
+  .preview .pv-name { font-family: var(--font-display); font-weight: 800; font-size: 18px; overflow-wrap: anywhere; }
   .preview .seal-wrap.pop { animation: pop .35s cubic-bezier(.3, 1.6, .5, 1); }
   .head { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; }
   .links { display: flex; gap: 8px; flex-wrap: wrap; }
-  .stampcard { background: var(--card); border-radius: 18px; box-shadow: var(--shadow); padding: 14px; display: grid; gap: 10px; }
+  .stampcard { border: 1px solid var(--line); background: var(--card); border-radius: 8px; box-shadow: var(--shadow); padding: 14px; display: grid; gap: 10px; }
   .stampcard .top { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
   .stampcard .top b { font-size: 30px; font-weight: 900; line-height: 1; }
   .slots { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px 4px; }
@@ -198,23 +209,32 @@
   .visit .d { font-variant-numeric: tabular-nums; font-weight: 700; }
   .visit .m { color: var(--sub); overflow-wrap: anywhere; }
   .visit button { color: var(--sub); padding: 4px 8px; }
-  .hit { background: var(--wash); border-radius: 12px; padding: 9px 12px; font-size: 14px; }
+  .hit { background: var(--wash); border-radius: 6px; padding: 9px 12px; font-size: 14px; }
   .check { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--sub); }
 
   /* ---------- 演出 ---------- */
   #fx { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3000; }
   #cele { position: fixed; inset: 0; z-index: 2500; display: grid; place-items: center; background: color-mix(in oklab, var(--paper) 90%, transparent); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); animation: fade .2s; }
   #cele.out { animation: fadeOut .3s forwards; }
-  .cele-in { display: grid; justify-items: center; gap: 10px; text-align: center; padding: 24px; }
+  .cele-in { display: grid; justify-items: center; gap: 16px; text-align: center; padding: 24px; }
+  .cele-row { display: flex; align-items: center; gap: 20px; }
+  .tcy { text-combine-upright: all; -webkit-text-combine: horizontal; }
   .cele-in .seal-wrap { animation: slam .6s cubic-bezier(.2, 1.5, .4, 1) .05s backwards; }
-  .cele-title { font: 400 30px/1.25 var(--font-display); animation: rise .5s .3s backwards; }
-  .cele-sub { font-weight: 700; color: var(--sub); animation: rise .5s .42s backwards; overflow-wrap: anywhere; }
-  #toast { position: fixed; left: 50%; bottom: calc(86px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: var(--ink); color: var(--on-ink); border-radius: 14px; padding: 10px 14px; font-size: 14px; display: none; gap: 12px; align-items: center; z-index: 2000; width: max-content; max-width: calc(100vw - 32px); box-shadow: 0 8px 24px rgba(0, 0, 0, .25); }
+  .cele-title { writing-mode: vertical-rl; font: 800 38px/1.2 var(--font-display); letter-spacing: .16em; animation: fude .8s .4s ease-out both; }
+  .cele-sub { font-weight: 700; color: var(--sub); animation: nijimi .6s .9s backwards; overflow-wrap: anywhere; }
+  #toast { position: fixed; left: 50%; bottom: calc(86px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: var(--ink); color: var(--on-ink); border-radius: 8px; padding: 10px 14px; font-size: 14px; display: none; gap: 12px; align-items: center; z-index: 2000; width: max-content; max-width: calc(100vw - 32px); box-shadow: 0 8px 24px rgba(0, 0, 0, .25); }
   #toast.show { display: flex; animation: rise .3s cubic-bezier(.2, .8, .2, 1); }
-  #toast button { color: var(--kaki); font-weight: 900; flex: none; }
+  #toast button { color: var(--kin); font-weight: 900; flex: none; }
 
   @keyframes slam { 0% { transform: scale(2.6) rotate(-16deg); opacity: 0; } 55% { transform: scale(.9) rotate(2deg); opacity: 1; } 100% { transform: none; } }
-  @keyframes ripple { from { transform: scale(.8); opacity: .7; } to { transform: scale(1.9); opacity: 0; } }
+  @keyframes ripple { from { transform: scale(.5); opacity: .45; } to { transform: scale(1.7); opacity: 0; } }
+  @keyframes nijimi { from { opacity: 0; filter: blur(7px); transform: translateY(5px); } }
+  @keyframes fude { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 -10% 0); } }
+  @keyframes fusumaOutL { to { transform: translateX(-12%); opacity: 0; } }
+  @keyframes fusumaInR { from { transform: translateX(100%); } }
+  @keyframes fusumaOutR { to { transform: translateX(12%); opacity: 0; } }
+  @keyframes fusumaInL { from { transform: translateX(-100%); } }
+  @keyframes kuji { 20% { transform: rotate(-14deg) translateY(-3px); } 60% { transform: rotate(12deg) translateY(2px); } }
   @keyframes thud { 0% { transform: none; } 30% { transform: translateY(3px) scale(.985); } 100% { transform: none; } }
   @keyframes rise { from { opacity: 0; transform: translateY(14px); } }
   @keyframes pop { from { transform: scale(.5); opacity: 0; } }
@@ -226,6 +246,10 @@
   @keyframes fadeOut { to { opacity: 0; } }
   @keyframes sheetUp { from { transform: translateY(100%); } }
   @keyframes sheetDown { to { transform: translateY(100%); } }
+  ::view-transition-old(root) { animation: fusumaOutL .26s ease-in both; }
+  ::view-transition-new(root) { animation: fusumaInR .34s cubic-bezier(.2, .8, .2, 1) both; }
+  :root[data-dir="back"]::view-transition-old(root) { animation-name: fusumaOutR; }
+  :root[data-dir="back"]::view-transition-new(root) { animation-name: fusumaInL; }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
   }
@@ -267,13 +291,13 @@
 </svg>
 
 <div id="app">
-  <header><h1>ごち印帖</h1><span id="sync"></span></header>
+  <header><h1><span class="mark" aria-hidden="true">印</span>ごち印帖</h1><span id="sync"></span></header>
 
   <section id="tab-list" style="display:grid;gap:14px">
     <div class="hero">
       <div class="hero-num"><span id="heroNum">0</span><small>回</small></div>
       <div class="hero-side">
-        <span class="hero-label">今月押したスタンプ</span>
+        <span class="hero-label" id="heroLabel"></span>
         <span class="hero-level" id="heroLevel"></span>
         <div class="meter"><i id="heroMeter" style="width:0"></i></div>
         <span class="hero-label" id="heroNext"></span>
@@ -298,7 +322,8 @@
   <section id="tab-map" hidden style="display:grid;gap:10px">
     <div class="maptools">
       <button class="btn small" id="locBtn">現在地へ</button>
-      <span class="note">判子をタップするとその場でスタンプを押せます</span>
+      <button class="btn small" id="fitBtn" hidden>すべての印を映す</button>
+      
     </div>
     <div id="map"></div>
   </section>
@@ -308,13 +333,13 @@
 
 <nav>
   <button data-tab="list" class="on">
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="6"/><path d="M5 20h14M8 20v-2.5M16 20v-2.5"/></svg>スタンプ帳
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="6"/><path d="M5 20h14M8 20v-2.5M16 20v-2.5"/></svg>印帖
   </button>
   <button data-tab="map">
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.500C5 14.800 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>マップ
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.500C5 14.800 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>地図
   </button>
   <button data-tab="stats">
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V11M12 20V4M19 20v-6"/></svg>きろく
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V11M12 20V4M19 20v-6"/></svg>記録
   </button>
   <button id="fab" aria-label="お店を登録">
     <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
@@ -449,12 +474,14 @@ function sealSvg(name, ink, size, opt) {
 const sealOf = (p, size, opt) => sealSvg(p.name, inkOf(p), size, Object.assign({ inked: p.status !== 'want' }, opt));
 
 /* ========== 称号 ========== */
-const LEVELS = [[0, 'はじめの一歩'], [1, '食べ歩き見習い'], [5, 'ご近所グルメ'], [10, '街の食通'], [20, '常連メーカー'], [35, '美食ハンター'], [50, '食の探検家'], [75, 'グルメの達人'], [100, '伝説の食通'], [150, '食の仙人']];
+// 押した印の数で上がる番付（相撲の番付になぞらえる）
+const LEVELS = [[0, '序ノ口'], [1, '序二段'], [5, '三段目'], [10, '幕下'], [20, '十両'], [35, '前頭'], [50, '小結'], [75, '関脇'], [100, '大関'], [150, '横綱']];
+const WAFU_MONTHS = ['睦月', '如月', '弥生', '卯月', '皐月', '水無月', '文月', '葉月', '長月', '神無月', '霜月', '師走'];
 function levelOf(n) {
   let i = 0;
   while (i + 1 < LEVELS.length && n >= LEVELS[i + 1][0]) i++;
   const next = LEVELS[i + 1];
-  return { lv: i + 1, title: LEVELS[i][1], from: LEVELS[i][0], next: next ? next[0] : null };
+  return { lv: i + 1, title: LEVELS[i][1], from: LEVELS[i][0], next: next ? next[0] : null, nextTitle: next ? next[1] : '' };
 }
 const rankOf = n => n >= 20 ? '主' : n >= 10 ? '顔なじみ' : n >= 5 ? '常連' : n >= 3 ? 'おなじみ' : n === 2 ? 'リピーター' : n === 1 ? '初来店' : '';
 const MILESTONES = [3, 5, 10, 20, 30, 50, 100];
@@ -606,10 +633,10 @@ function addVisit(placeId, opt) {
 
   const n = visitsOf(placeId).length;
   if (navigator.vibrate) navigator.vibrate(n === 1 || MILESTONES.includes(n) ? [30, 40, 60] : 25);
-  if (n === 1) celebrate(p, wasWant ? '行きたいが叶った！' : '初スタンプ！', p.name);
-  else if (MILESTONES.includes(n)) celebrate(p, `${n}回目！`, `${p.name}の「${rankOf(n)}」になりました`);
+  if (n === 1) celebrate(p, wasWant ? '念願成就' : '初印', p.name);
+  else if (MILESTONES.includes(n)) celebrate(p, `${n}回目`, `${p.name}の「${rankOf(n)}」になりました`);
   else confetti(opt.x, opt.y, 30);
-  toast(`「${p.name}」にスタンプ（累計${n}回）`, () => {
+  toast(`「${p.name}」に押印（累計${n}回）`, () => {
     S.visits = S.visits.filter(x => x.id !== v.id);
     const undo = [{ op: 'delete', sheet: 'visits', id: v.id }];
     if (wasWant) { p.status = 'want'; undo.push({ op: 'upsert', sheet: 'places', row: p }); }
@@ -665,17 +692,39 @@ async function ensurePosition() {
 // dialog は最前面レイヤーに描かれるので、シートが開いている間は演出やトーストもその中へ移す
 const layer = () => document.querySelector('dialog[open]') || document.body;
 const fx = { parts: [], running: false };
+// 季節の吹雪: 春は桜、夏は金箔、秋は紅葉、冬は雪。どの季節も金箔を少し混ぜる
+const FUBUKI = { sakura: ['#f3a9bd', '#f7c6d2', '#ea8fa9'], momiji: ['#c8371f', '#e07b1a', '#d9a520'], yuki: ['#b7c7d6', '#d5dfe8', '#9fb4c6'], kin: ['#c9a24a', '#e2c877', '#b08a35'] };
+function season() {
+  const m = new Date().getMonth() + 1;
+  return m >= 3 && m <= 5 ? 'sakura' : m >= 6 && m <= 8 ? 'kin' : m >= 9 && m <= 11 ? 'momiji' : 'yuki';
+}
+function drawFlake(ctx, type, r) {
+  ctx.beginPath();
+  if (type === 'sakura') { // 先に切れ込みのある花びら
+    ctx.moveTo(0, r);
+    ctx.bezierCurveTo(-r, r * .3, -r * .7, -r, -r * .12, -r * .8);
+    ctx.lineTo(0, -r * .55); ctx.lineTo(r * .12, -r * .8);
+    ctx.bezierCurveTo(r * .7, -r, r, r * .3, 0, r);
+  } else if (type === 'momiji') { // 七つに裂けた葉
+    for (let k = 0; k < 14; k++) {
+      const rad = k % 2 ? r * .42 : r * (k === 7 ? .5 : 1), a = -Math.PI / 2 + k * Math.PI / 7;
+      ctx[k ? 'lineTo' : 'moveTo'](Math.cos(a) * rad, Math.sin(a) * rad);
+    }
+  } else if (type === 'yuki') ctx.arc(0, 0, r * .5, 0, 7);
+  else { ctx.moveTo(-r * .6, -r * .45); ctx.lineTo(r * .55, -r * .5); ctx.lineTo(r * .6, r * .4); ctx.lineTo(-r * .5, r * .5); }
+  ctx.closePath(); ctx.fill();
+}
 function confetti(x, y, n) {
   if (reduced) return;
   const c = $('#fx'), dpr = window.devicePixelRatio || 1;
   layer().appendChild(c);
   c.width = innerWidth * dpr; c.height = innerHeight * dpr;
-  const css = getComputedStyle(document.documentElement);
-  const cols = INKS.map(k => css.getPropertyValue('--' + k).trim());
+  const kind = season();
   x = x == null ? innerWidth / 2 : x; y = y == null ? innerHeight / 2 : y;
   for (let i = 0; i < (n || 40); i++) {
-    const a = Math.random() * Math.PI * 2, sp = 4 + Math.random() * 9;
-    fx.parts.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 5, r: 3 + Math.random() * 5, rot: Math.random() * 6, vr: (Math.random() - .5) * .5, col: cols[i % cols.length], life: 1, round: i % 3 === 0 });
+    const type = i % 5 === 0 ? 'kin' : kind, cols = FUBUKI[type];
+    const a = -Math.PI / 2 + (Math.random() - .5) * Math.PI * 1.5, sp = 3 + Math.random() * 8;
+    fx.parts.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: 5 + Math.random() * 6, rot: Math.random() * 6, vr: (Math.random() - .5) * .1, ph: Math.random() * 6, tv: 1.2 + Math.random() * 2.2, col: cols[i % cols.length], type, life: 1 });
   }
   if (fx.running) return;
   fx.running = true;
@@ -683,15 +732,17 @@ function confetti(x, y, n) {
   (function tick() {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, innerWidth, innerHeight);
-    fx.parts = fx.parts.filter(p => p.life > 0);
+    fx.parts = fx.parts.filter(p => p.life > 0 && p.y < innerHeight + 30);
     fx.parts.forEach(p => {
-      p.vy += .35; p.vx *= .985; p.x += p.vx; p.y += p.vy; p.rot += p.vr; p.life -= .016;
-      ctx.save(); ctx.globalAlpha = Math.min(1, p.life * 2); ctx.fillStyle = p.col;
-      ctx.translate(p.x, p.y); ctx.rotate(p.rot);
-      if (p.round) { ctx.beginPath(); ctx.arc(0, 0, p.r * .7, 0, 7); ctx.fill(); } else ctx.fillRect(-p.r, -p.r * .45, p.r * 2, p.r * .9);
+      // ふわっと舞い上がり、ひらひら揺れながら落ちる
+      p.ph += .08; p.vy = Math.min(p.vy + .11, p.tv); p.vx = p.vx * .96 + Math.sin(p.ph) * .13;
+      p.x += p.vx; p.y += p.vy; p.rot += p.vr; p.life -= .006;
+      ctx.save(); ctx.globalAlpha = Math.min(1, p.life * 3); ctx.fillStyle = p.col;
+      ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.scale(1, .35 + .65 * Math.abs(Math.cos(p.ph)));
+      drawFlake(ctx, p.type, p.r);
       ctx.restore();
     });
-    if (fx.parts.length) requestAnimationFrame(tick); else fx.running = false;
+    if (fx.parts.length) requestAnimationFrame(tick); else { fx.running = false; ctx.clearRect(0, 0, innerWidth, innerHeight); }
   })();
 }
 
@@ -700,13 +751,13 @@ function celebrate(p, title, sub) {
   if (old) old.remove();
   const el = document.createElement('div');
   el.id = 'cele';
-  el.innerHTML = `<div class="cele-in"><span class="seal-wrap">${sealSvg(p.name, inkOf(p), 190, { fx: true })}</span>
-    <div class="cele-title">${esc(title)}</div><div class="cele-sub">${esc(sub)}</div></div>`;
+  el.innerHTML = `<div class="cele-in"><div class="cele-row"><span class="seal-wrap">${sealSvg(p.name, inkOf(p), 170, {})}</span>
+    <div class="cele-title">${esc(title).replace(/\d+/, d => '<span class="tcy">' + d + '</span>')}</div></div><div class="cele-sub">${esc(sub)}</div></div>`;
   layer().appendChild(el);
-  setTimeout(() => confetti(innerWidth / 2, innerHeight * .42, 90), reduced ? 0 : 260);
+  setTimeout(() => confetti(innerWidth / 2, innerHeight * .4, 110), reduced ? 0 : 260);
   const close = () => { el.classList.add('out'); setTimeout(() => el.remove(), 300); };
   el.onclick = close;
-  setTimeout(close, 2200);
+  setTimeout(close, 2800);
 }
 
 let toastTimer, toastUndo;
@@ -754,10 +805,11 @@ function renderList() {
   const idx = visitIndex();
   const month = today().slice(0, 7);
   countTo($('#heroNum'), S.visits.filter(v => v.date.startsWith(month)).length);
-  const lv = levelOf(S.visits.length);
-  $('#heroLevel').textContent = `Lv.${lv.lv} ${lv.title}`;
+  const lv = levelOf(S.visits.length), mo = new Date().getMonth();
+  $('#heroLabel').textContent = `${WAFU_MONTHS[mo]}（${mo + 1}月）に押した印`;
+  $('#heroLevel').textContent = `番付　${lv.title}`;
   $('#heroMeter').style.width = (lv.next ? (S.visits.length - lv.from) / (lv.next - lv.from) * 100 : 100) + '%';
-  $('#heroNext').textContent = lv.next ? `あと${lv.next - S.visits.length}回で Lv.${lv.lv + 1}` : '最高レベルに到達';
+  $('#heroNext').textContent = lv.next ? `あと${lv.next - S.visits.length}印で「${lv.nextTitle}」` : '最高位に到達';
 
   const counts = { all: S.places.length, visited: 0, want: 0 };
   S.places.forEach(p => counts[p.status]++);
@@ -808,7 +860,7 @@ function renderList() {
           : '<span class="shop-count">行きたいお店・まだ押していません</span>'}
         </span>
       </button>
-      <button class="press" data-act="visit" aria-label="${esc(p.name)}にスタンプを押す"><span>押す</span></button>
+      <button class="press" data-act="visit" aria-label="${esc(p.name)}に印を押す"><span>押す</span></button>
     </article>`;
   }).join('') : S.places.length
     ? '<div class="empty">条件に合うお店がありません</div>'
@@ -819,11 +871,13 @@ function renderList() {
 }
 
 /* ---------- マップ ---------- */
-let map, markers;
+let map, markers, mapPts = [];
+const AICHI = [[34.57, 136.67], [35.43, 137.84]]; // 地図を開いたときに映す範囲（愛知県）
 function renderMap() {
   if (typeof L === 'undefined') { $('#map').innerHTML = '<div class="empty">地図を読み込めませんでした</div>'; return; }
   if (!map) {
-    map = L.map('map').setView([35.681, 139.767], 12);
+    map = L.map('map');
+    map.fitBounds(AICHI);
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
     markers = L.layerGroup().addTo(map);
     map.on('popupopen', e => {
@@ -842,12 +896,13 @@ function renderMap() {
     const icon = L.divIcon({ className: '', iconSize: [44, 44], iconAnchor: [22, 22], html: `<div class="pin">${sealOf(p, 34, { fx: false })}${c ? `<b>${c}</b>` : ''}</div>` });
     L.marker([p.lat, p.lng], { icon })
       .bindPopup(`<b>${esc(p.name)}</b><span>${c ? `累計 ${c} 回 · ${rankOf(c)}` : '行きたいお店'}</span>
-        <span style="display:flex;gap:6px"><button class="btn stampbtn small" data-pop="visit" data-id="${esc(p.id)}">スタンプを押す</button>
+        <span style="display:flex;gap:6px"><button class="btn stampbtn small" data-pop="visit" data-id="${esc(p.id)}">印を押す</button>
         <button class="btn small" data-pop="detail" data-id="${esc(p.id)}">ひらく</button></span>`)
       .addTo(markers);
     pts.push([p.lat, p.lng]);
   });
-  if (pts.length && !map._fitted) { map.fitBounds(pts, { padding: [40, 40], maxZoom: 16 }); map._fitted = true; }
+  mapPts = pts;
+  $('#fitBtn').hidden = !pts.length;
 }
 
 /* ---------- きろく ---------- */
@@ -869,7 +924,7 @@ function badgeList(idx) {
   });
   const fulfilled = S.places.some(p => { const vs = visitsOf(p.id); return vs.length && vs[vs.length - 1].date > String(p.createdAt).slice(0, 10); });
   return [
-    ['初', '初スタンプ', '1回押す', S.visits.length >= 1],
+    ['初', '初印', '1回押す', S.visits.length >= 1],
     ['拓', '開拓者', '10軒に行く', visited >= 10],
     ['常', '常連', '同じ店に5回', maxCount >= 5],
     ['主', '店の主', '同じ店に10回', maxCount >= 10],
@@ -917,26 +972,26 @@ function renderStats() {
   $('#stats').innerHTML = `
     <div class="block">
       <div class="hero"><div class="hero-num">${S.visits.length}<small>回</small></div>
-        <div class="hero-side"><span class="hero-label">これまでに押したスタンプ</span><span class="hero-level">Lv.${lv.lv} ${lv.title}</span>
+        <div class="hero-side"><span class="hero-label">これまでに押した印</span><span class="hero-level">番付　${lv.title}</span>
         <div class="meter"><i style="width:${lv.next ? (S.visits.length - lv.from) / (lv.next - lv.from) * 100 : 100}%"></i></div>
-        <span class="hero-label">${lv.next ? `あと${lv.next - S.visits.length}回で Lv.${lv.lv + 1}` : '最高レベルに到達'}</span></div></div>
+        <span class="hero-label">${lv.next ? `あと${lv.next - S.visits.length}印で「${lv.nextTitle}」` : '最高位に到達'}</span></div></div>
       <div class="tiles">
         <div class="tile"><div class="v">${visited}</div><div class="l">行った店</div></div>
         <div class="tile"><div class="v">${S.places.length - visited}</div><div class="l">行きたい店</div></div>
-        <div class="tile"><div class="v">${badges.filter(b => b[3]).length}<small style="font-size:13px">/${badges.length}</small></div><div class="l">バッジ</div></div>
+        <div class="tile"><div class="v">${badges.filter(b => b[3]).length}<small style="font-size:13px">/${badges.length}</small></div><div class="l">記念印</div></div>
       </div>
     </div>
-    <div class="block"><h2>今日どこ行く？</h2>
+    <div class="block"><h2>おみくじで決める</h2>
       <div class="slot" id="slot"><span id="slotSeal">${sealSvg('？', 'sub', 52, { inked: false })}</span><span class="who" id="slotWho">行きたいお店から1軒えらびます</span>
-        <button class="btn solid" id="roulette">まわす</button></div></div>
-    <div class="block"><h2>スタンプカレンダー（直近20週）</h2><div class="heat" id="heat">${heat}</div><div class="readout note" id="heatRead">マスをタップするとその日の回数が出ます</div></div>
-    <div class="block"><h2>月ごとのスタンプ数</h2><div class="cols" id="cols">${cols}</div>
+        <button class="btn solid" id="roulette">引く</button></div></div>
+    <div class="block"><h2>押印ごよみ（直近20週）</h2><div class="heat" id="heat">${heat}</div><div class="readout note" id="heatRead">マスをタップするとその日の回数が出ます</div></div>
+    <div class="block"><h2>月ごとの印の数</h2><div class="cols" id="cols">${cols}</div>
       <div class="colx">${months.map(m => `<span>${Number(m.slice(5))}</span>`).join('')}</div><div class="readout note" id="colRead">棒をタップするとその月の回数が出ます</div></div>
-    <div class="block"><h2>よく行くお店</h2>${ranking.length ? ranking.map(([p, n], i) => `<button class="rankrow" data-open="${esc(p.id)}">
+    <div class="block"><h2>行きつけ番付</h2>${ranking.length ? ranking.map(([p, n], i) => `<button class="rankrow" data-open="${esc(p.id)}">
         <span class="no">${i + 1}</span>${sealOf(p, 40)}<span class="nm">${esc(p.name)}<span class="hbar" style="width:${n / rMax * 100}%;animation-delay:${i * 60}ms"></span></span><span class="n">${n}回</span></button>`).join('')
-      : '<div class="note">スタンプを押すとここにランキングが出ます</div>'}</div>
-    ${genres.length ? `<div class="block"><h2>ジャンル別のスタンプ数</h2>${genres.map(([g, n], i) => `<div class="grow"><span>${esc(g)}</span><span><span class="hbar" style="display:block;width:${n / gMax * 100}%;animation-delay:${i * 50}ms"></span></span><span class="n">${n}</span></div>`).join('')}</div>` : ''}
-    <div class="block"><h2>バッジ</h2><div class="badges">${badges.map(([ch, name, cond, got]) => `<div class="badge${got ? '' : ' locked'}">
+      : '<div class="note">印を押すとここにランキングが出ます</div>'}</div>
+    ${genres.length ? `<div class="block"><h2>ジャンル別の印の数</h2>${genres.map(([g, n], i) => `<div class="grow"><span>${esc(g)}</span><span><span class="hbar" style="display:block;width:${n / gMax * 100}%;animation-delay:${i * 50}ms"></span></span><span class="n">${n}</span></div>`).join('')}</div>` : ''}
+    <div class="block"><h2>記念印</h2><div class="badges">${badges.map(([ch, name, cond, got]) => `<div class="badge${got ? '' : ' locked'}">
         ${sealSvg(got ? ch : '？', 'shu', 56, { inked: got })}<b>${name}</b><span>${cond}</span></div>`).join('')}</div></div>
     <details class="more"><summary>連携と設定</summary><div class="inner">
       ${HAS_GAS ? '' : API_URL ? `<div class="block"><h2>ほかの端末で使う</h2>
@@ -1013,7 +1068,7 @@ function updateAddPreview(pop) {
   sealEl.innerHTML = name ? sealSvg(name, inkOf(dup || { name, genre: '' }), 76, { fx: true }) : sealSvg('？', 'sub', 76, { inked: false });
   if (pop) { sealEl.classList.remove('pop'); void sealEl.offsetWidth; sealEl.classList.add('pop'); }
   $('#addPvName').textContent = name || '店名を入れると判子ができます';
-  $('#addHit').textContent = dup ? `登録済み（累計 ${visitsOf(dup.id).length} 回）。「行った！」でスタンプを1つ押します`
+  $('#addHit').textContent = dup ? `登録済み（累計 ${visitsOf(dup.id).length} 回）。「行った！」で印を1つ押します`
     : addInfo.address || '';
   return dup;
 }
@@ -1071,7 +1126,7 @@ function openDetail(id, slamLast) {
   const mini = sealSvg(p.name, ink, 48, {});
   const cells = Array.from({ length: 10 }, (_, i) => {
     if (i < onCard.length) return `<div class="cell"><span class="seal-wrap${slamLast && i === onCard.length - 1 ? ' slam' : ''}" style="color:var(--${ink})">${mini}</span>${shortDate(onCard[i].date)}</div>`;
-    if (i === onCard.length) return `<div class="cell"><button class="ring" data-d="stamp" style="color:var(--${ink})" aria-label="今日のスタンプを押す">押す</button>今日</div>`;
+    if (i === onCard.length) return `<div class="cell"><button class="ring" data-d="stamp" style="color:var(--${ink})" aria-label="今日の印を押す">押す</button>今日</div>`;
     return '<div class="cell"><span class="ring"></span>&nbsp;</div>';
   }).join('');
   const genreSet = [...new Set(GENRES.concat(S.places.map(x => x.genre).filter(Boolean)))];
@@ -1087,13 +1142,13 @@ function openDetail(id, slamLast) {
         </div></div></div>
     <div class="stampcard">
       <div class="top"><b>${n}</b>回${n ? `<span class="rank" style="color:var(--${ink})">${rankOf(n)}</span>` : ''}
-        <span class="note" style="margin-left:auto">スタンプカード ${cardNo}枚目${n && n % 10 === 0 ? '（満了！次の1回で新しいカード）' : ''}</span></div>
+        <span class="note" style="margin-left:auto">押印帳 ${cardNo}枚目${n && n % 10 === 0 ? '（満了！次の1回で新しいカード）' : ''}</span></div>
       <div class="slots">${n && n % 10 === 0 ? cells.replace('<div class="cell"><span class="ring"></span>&nbsp;</div>', '') : cells}</div>
-      ${n && n % 10 === 0 ? `<button class="btn stampbtn" data-d="stamp">今日のスタンプを押す</button>` : ''}
+      ${n && n % 10 === 0 ? `<button class="btn stampbtn" data-d="stamp">今日の印を押す</button>` : ''}
       <details><summary class="note" style="cursor:pointer">日付やメモを付けて記録する</summary>
         <div style="display:grid;gap:8px;padding-top:8px">
           <div class="joined" style="grid-template-columns:auto 1fr"><input type="date" class="inline-input" id="vDate" value="${today()}" max="${today()}"><input class="inline-input" id="vMemo" placeholder="食べたもの・ひとこと"></div>
-          <button class="btn solid" data-d="visit">この内容でスタンプを押す</button>
+          <button class="btn solid" data-d="visit">この内容で印を押す</button>
         </div></details>
     </div>
     <div class="field"><span>評価</span><div class="stars" id="dRate">${[1, 2, 3, 4, 5].map(i => `<button type="button" data-rate="${i}" class="${i <= p.rating ? 'on' : ''}" aria-label="星${i}">★</button>`).join('')}</div></div>
@@ -1137,6 +1192,8 @@ function switchTab(tab) {
     render();
     scrollTo(0, 0);
   };
+  const order = ['list', 'map', 'stats'];
+  document.documentElement.dataset.dir = order.indexOf(tab) < order.indexOf(ui.tab) ? 'back' : 'fwd';
   if (document.startViewTransition && !reduced) document.startViewTransition(go); else go();
 }
 
@@ -1173,6 +1230,7 @@ $('#locBtn').onclick = async () => {
     L.circleMarker([ui.pos.lat, ui.pos.lng], { radius: 7, color: '#fff', weight: 3, fillColor: '#1a73e8', fillOpacity: 1 }).addTo(markers).bindPopup('現在地');
   }
 };
+$('#fitBtn').onclick = () => { if (map && mapPts.length) map.fitBounds(mapPts, { padding: [40, 40], maxZoom: 16 }); };
 $('#stats').onclick = e => {
   const open = e.target.closest('[data-open]');
   if (open) return openDetail(open.dataset.open);
