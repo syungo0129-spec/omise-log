@@ -1610,7 +1610,10 @@ async function runSearch() {
   $('#addResults').innerHTML = '<div class="note">さがしています…</div>';
   const pos = ui.pos || {};
   // Google（個人店に強い）と OpenStreetMap（チェーン店に強い）を同時に引く
-  const [found, osm] = await Promise.all([api.find(q, pos.lat, pos.lng).catch(() => []), searchPlaces(q).catch(() => null)]);
+  let gNote = HAS_GAS || API_URL ? '' : 'この端末はお試しモードなので、Googleでの検索は使えません。設定用リンクを開いて保存先につなぐと使えます';
+  const [found, osm] = await Promise.all([
+    api.find(q, pos.lat == null ? null : pos.lat, pos.lng == null ? null : pos.lng).catch(e => { gNote = 'Googleでの検索に失敗しました（' + String((e && e.message) || e).slice(0, 80) + '）'; return []; }),
+    searchPlaces(q).catch(() => null)]);
   if (!$('#addDlg').open) return;
   const hit = (found || []).find(r => r.isShop);
   const top = hit ? {
@@ -1620,6 +1623,8 @@ async function runSearch() {
   if (!top && !osm) { $('#addResults').innerHTML = '<div class="note">検索できませんでした。通信を確かめるか、下から登録してください</div>'; return; }
   showResults(osm || [], '見つかりませんでした。地名を足す（例: 店名 今池）か、「Googleマップでさがす」から登録できます', top);
   if (!top && !(osm || []).length) { $('#addName').value = q; updateAddPreview(false); $('#addAlt').open = true; }
+  // Google側が使えなかった理由は隠さず出す
+  if (gNote) $('#addResults').insertAdjacentHTML('afterbegin', `<div class="hit">${esc(gNote)}</div>`);
 }
 
 async function loadNearby() {
