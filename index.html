@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>お店ログ</title>
+<title>ごち印帖</title>
 <link rel="icon" href="icon.png">
 <link rel="apple-touch-icon" href="icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -267,7 +267,7 @@
 </svg>
 
 <div id="app">
-  <header><h1>お店ログ</h1><span id="sync"></span></header>
+  <header><h1>ごち印帖</h1><span id="sync"></span></header>
 
   <section id="tab-list" style="display:grid;gap:14px">
     <div class="hero">
@@ -948,13 +948,13 @@ function renderStats() {
       <div class="block"><h2>Googleマップからワンタップ登録</h2>
         <div class="note"><b>iPhone</b>（ショートカットアプリで1回だけ作成）</div>
         <ol>
-          <li>「ショートカット」アプリで新規作成し、名前を「お店ログに追加」にする</li>
+          <li>「ショートカット」アプリで新規作成し、名前を「ごち印帖に追加」にする</li>
           <li>ⓘ →「共有シートに表示」をオン（受け取る種類は URL とテキスト）</li>
           <li>アクション「URLエンコード」を追加（入力は「ショートカットの入力」）</li>
           <li>アクション「URLを開く」を追加し、URL欄に下の文字列を貼って、末尾に「URLエンコード済みのテキスト」変数を付ける</li>
         </ol>
         <input class="copy" readonly value="${esc(appUrl)}?add=" onclick="this.select()">
-        <div class="note">以後は Googleマップでお店を開き「共有 → お店ログに追加」で登録画面が開きます。</div>
+        <div class="note">以後は Googleマップでお店を開き「共有 → ごち印帖に追加」で登録画面が開きます。</div>
         <div class="note"><b>パソコン</b>（ブックマークレット）：下の文字列をURLにしたブックマークを作り、Googleマップでお店を開いた状態でクリック</div>
         <input class="copy" readonly value="${esc(`javascript:window.open('${appUrl}?add='+encodeURIComponent(location.href))`)}" onclick="this.select()"></div>
     </div></details>`;

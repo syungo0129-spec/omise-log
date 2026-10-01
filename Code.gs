@@ -1,5 +1,5 @@
 /**
- * お店ログ — Google Apps Script バックエンド
+ * ごち印帖 — Google Apps Script バックエンド
  * スプレッドシートに紐づけて使う（拡張機能 → Apps Script）。
  * データは places / visits の2シートに保存される。
  */
@@ -11,7 +11,7 @@ const SCHEMA = {
 
 function doGet() {
   return HtmlService.createHtmlOutputFromFile('index')
-    .setTitle('お店ログ')
+    .setTitle('ごち印帖')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
