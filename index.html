@@ -108,6 +108,25 @@
   .mini:active { transform: scale(.97); }
   .mini-t { display: grid; min-width: 0; font-size: 12px; color: var(--sub); }
   .mini-t b { color: var(--ink); font: 800 14px/1.4 var(--font-display); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .visit .m b { color: var(--ink); margin-left: 8px; font-variant-numeric: tabular-nums; }
+  .visit-edit { display: grid; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .money-head { display: flex; gap: 18px; flex-wrap: wrap; font-size: 13px; color: var(--sub); }
+  .money-head b { color: var(--ink); font-size: 20px; font-weight: 900; margin-left: 4px; }
+  .cols.money .col i, .hbar.ai { background: var(--ai); }
+  .rankrow .n small { display: block; font-size: 11px; font-weight: 500; color: var(--sub); text-align: right; }
+  .wards { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+  .ward { aspect-ratio: 1.3; display: grid; place-content: center; justify-items: center; gap: 1px; border: 1px dashed var(--line); border-radius: 5px; color: var(--sub); font-size: 11px; line-height: 1.2; }
+  .ward b { font: 800 15px/1.2 var(--font-display); letter-spacing: .04em; }
+  .ward.l1, .ward.l2, .ward.l3 { border: 1px solid transparent; color: var(--ink); }
+  .ward.l1 { background: color-mix(in oklab, var(--shu) 26%, var(--wash)); }
+  .ward.l2 { background: color-mix(in oklab, var(--shu) 55%, var(--wash)); }
+  .ward.l3 { background: var(--shu); color: var(--on-ink); }
+  .legend { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+  .legend .ward { width: 16px; height: 12px; aspect-ratio: auto; display: inline-block; margin-left: 8px; }
+  .yr-hero { display: flex; justify-content: center; align-items: center; gap: 22px; padding: 8px 0; }
+  .yr-title { font-size: 30px; }
+  .kv { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .kv span { color: var(--sub); }
   .empty { text-align: center; color: var(--sub); padding: 28px 8px; display: grid; gap: 12px; justify-items: center; }
   .empty b { color: var(--ink); font-size: 17px; }
 
@@ -154,7 +173,7 @@
   .heat i.l2 { background: color-mix(in oklab, var(--shu) 62%, var(--wash)); }
   .heat i.l3 { background: var(--shu); }
   .heat i.future { background: none; }
-  .heat i.sel, .cols .col.sel i { outline: 2px solid var(--ink); outline-offset: 1px; }
+  .heat i.sel, .cols .col.sel i, .wards .ward.sel { outline: 2px solid var(--ink); outline-offset: 1px; }
   .cols { display: grid; grid-template-columns: repeat(12, 1fr); gap: 2px; height: 120px; align-items: end; border-bottom: 1px solid var(--line); }
   .col { height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 3px; cursor: pointer; }
   .col i { width: min(24px, 70%); border-radius: 4px 4px 0 0; background: var(--shu); min-height: 0; animation: grow .7s cubic-bezier(.2, .8, .2, 1) backwards; transform-origin: bottom; }
@@ -213,7 +232,7 @@
   .stars button.on { color: var(--star); }
   .stars button:active { transform: scale(1.35); }
   .gchips { display: flex; flex-wrap: wrap; gap: 6px; }
-  .visit { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; font-size: 14px; padding: 7px 0; border-bottom: 1px solid var(--line); }
+  .visit { display: grid; grid-template-columns: auto 1fr auto auto; gap: 10px; align-items: center; font-size: 14px; padding: 7px 0; border-bottom: 1px solid var(--line); }
   .visit .d { font-variant-numeric: tabular-nums; font-weight: 700; }
   .visit .m { color: var(--sub); overflow-wrap: anywhere; }
   .visit button { color: var(--sub); padding: 4px 8px; }
@@ -357,7 +376,8 @@
 
 <dialog id="addDlg" class="sheet"><div class="sheet-body" id="addBody"></div></dialog>
 <dialog id="detailDlg" class="sheet"><div class="sheet-body" id="detailBody"></div></dialog>
-<div id="toast" role="status"><span id="toastMsg"></span><button id="toastUndo">取り消す</button></div>
+<dialog id="yearDlg" class="sheet"><div class="sheet-body" id="yearBody"></div></dialog>
+<div id="toast" role="status"><span id="toastMsg"></span><button id="toastExtra" hidden></button><button id="toastUndo">取り消す</button></div>
 <canvas id="fx"></canvas>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -559,7 +579,7 @@ function normalize(data) {
     p.rating = Number(p.rating) || 0;
     p.status = p.status === 'want' ? 'want' : 'visited';
   });
-  data.visits.forEach(v => { v.date = String(v.date).replace(/\//g, '-').slice(0, 10); });
+  data.visits.forEach(v => { v.date = String(v.date).replace(/\//g, '-').slice(0, 10); v.amount = parseAmount(v.amount); });
   return data;
 }
 
@@ -631,7 +651,7 @@ async function load() {
 function addVisit(placeId, opt) {
   opt = opt || {};
   const p = placeById(placeId);
-  const v = { id: uid(), placeId, date: opt.date || today(), memo: opt.memo || '', createdAt: now() };
+  const v = { id: uid(), placeId, date: opt.date || today(), memo: opt.memo || '', createdAt: now(), amount: opt.amount || 0 };
   S.visits.push(v);
   const ops = [{ op: 'upsert', sheet: 'visits', row: v }];
   const wasWant = p.status === 'want';
@@ -653,7 +673,7 @@ function addVisit(placeId, opt) {
     if (wasWant) { p.status = 'want'; undo.push({ op: 'upsert', sheet: 'places', row: p }); }
     commit(undo);
     if ($('#detailDlg').open && detailId === placeId) openDetail(placeId);
-  });
+  }, { label: '金額・メモ', fn: () => { detailId = placeId; editVisitId = v.id; openDetail(placeId); } });
 }
 
 function deleteVisit(id) {
@@ -771,11 +791,13 @@ function celebrate(p, title, sub, sealHtml) {
   setTimeout(close, 2800);
 }
 
-let toastTimer, toastUndo;
-function toast(msg, undo) {
+let toastTimer, toastUndo, toastExtra;
+function toast(msg, undo, extra) {
   $('#toastMsg').textContent = msg;
-  toastUndo = undo;
+  toastUndo = undo; toastExtra = extra;
   $('#toastUndo').hidden = !undo;
+  $('#toastExtra').hidden = !extra;
+  $('#toastExtra').textContent = extra ? extra.label : '';
   const el = $('#toast');
   layer().appendChild(el);
   el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
@@ -1116,16 +1138,19 @@ function renderStats() {
         <div class="tile"><div class="v">${badges.filter(b => b.got).length}<small style="font-size:13px">/${badges.length}</small></div><div class="l">記念印</div></div>
       </div>
     </div>
+    ${reviewBlock()}
     <div class="block"><h2>おみくじで決める</h2>
       <div class="slot" id="slot"><span id="slotSeal">${sealSvg('？', 'sub', 52, { inked: false })}</span><span class="who" id="slotWho">行きたいお店から1軒えらびます</span>
         <button class="btn solid" id="roulette">引く</button></div></div>
-    <div class="block"><h2>押印ごよみ（直近20週）</h2><div class="heat" id="heat">${heat}</div><div class="readout note" id="heatRead">マスをタップするとその日の回数が出ます</div></div>
-    <div class="block"><h2>月ごとの印の数</h2><div class="cols" id="cols">${cols}</div>
+    <div class="block"><h2>押印ごよみ（直近20週）</h2><div class="heat" id="heat" data-readout="#heatRead">${heat}</div><div class="readout note" id="heatRead">マスをタップするとその日の回数が出ます</div></div>
+    <div class="block"><h2>月ごとの印の数</h2><div class="cols" id="cols" data-readout="#colRead">${cols}</div>
       <div class="colx">${months.map(m => `<span>${Number(m.slice(5))}</span>`).join('')}</div><div class="readout note" id="colRead">棒をタップするとその月の回数が出ます</div></div>
+    ${moneyBlock(months)}
     <div class="block"><h2>行きつけ番付</h2>${ranking.length ? ranking.map(([p, n], i) => `<button class="rankrow" data-open="${esc(p.id)}">
         <span class="no">${i + 1}</span>${sealOf(p, 40)}<span class="nm">${esc(p.name)}<span class="hbar" style="width:${n / rMax * 100}%;animation-delay:${i * 60}ms"></span></span><span class="n">${n}回</span></button>`).join('')
       : '<div class="note">印を押すとここにランキングが出ます</div>'}</div>
     ${genres.length ? `<div class="block"><h2>ジャンル別の印の数</h2>${genres.map(([g, n], i) => `<div class="grow"><span>${esc(g)}</span><span><span class="hbar" style="display:block;width:${n / gMax * 100}%;animation-delay:${i * 50}ms"></span></span><span class="n">${n}</span></div>`).join('')}</div>` : ''}
+    ${wardBlock(idx)}
     <div class="block"><h2>記念印　${badges.filter(b => b.got).length} / ${badges.length}</h2>
       ${BADGE_GROUPS.map(([gid, label, ink]) => `<div class="bgroup">${label}</div><div class="badges">${badges.filter(b => b.group === gid).map(b => `<div class="badge${b.got ? '' : ' locked'}">
         ${sealSvg(b.ch, ink, 56, { inked: b.got })}<b>${b.name}</b><span>${b.cond}</span></div>`).join('')}</div>`).join('')}</div>
@@ -1173,6 +1198,145 @@ function spinRoulette() {
     delay *= 1.13;
     if (delay < 380) setTimeout(next, delay); else done();
   })();
+}
+
+/* ---------- 金額と食べたもの ---------- */
+const yen = n => '¥' + Math.round(n).toLocaleString('ja-JP');
+const yenShort = n => n >= 10000 ? (n / 10000).toFixed(1).replace(/\.0$/, '') + '万' : String(Math.round(n));
+const parseAmount = s => Number(String(s == null ? '' : s).replace(/[^0-9]/g, '')) || 0;
+
+function spentLabel(vs) {
+  const paid = vs.filter(v => v.amount);
+  if (!paid.length) return '';
+  const sum = paid.reduce((a, v) => a + v.amount, 0);
+  return `　合計 ${yen(sum)}・1回あたり ${yen(sum / paid.length)}`;
+}
+
+function visitRow(v) {
+  if (v.id === editVisitId) return `<div class="visit-edit"><b>${esc(v.date)}</b>
+    <input class="inline-input" id="veMemo" value="${esc(v.memo)}" placeholder="食べたもの・ひとこと">
+    <div class="joined"><input class="inline-input" id="veAmount" inputmode="numeric" value="${v.amount || ''}" placeholder="金額（円）"><button class="btn solid" data-d="saveVisit">書きとめる</button></div></div>`;
+  return `<div class="visit"><span class="d">${esc(v.date)}</span><span class="m">${esc(v.memo)}${v.amount ? `<b>${yen(v.amount)}</b>` : ''}</span>
+    <button data-d="editVisit" data-id="${esc(v.id)}" aria-label="${esc(v.date)}の来店に食べたものや金額を書く">書く</button>
+    <button data-d="delVisit" data-id="${esc(v.id)}" aria-label="${esc(v.date)}の来店を削除">✕</button></div>`;
+}
+
+function saveVisitEdit() {
+  const v = S.visits.find(x => x.id === editVisitId);
+  if (v) {
+    v.memo = $('#veMemo').value.trim();
+    v.amount = parseAmount($('#veAmount').value);
+    commit([{ op: 'upsert', sheet: 'visits', row: v }]);
+  }
+  editVisitId = null;
+  openDetail(detailId);
+  toast('書きとめました');
+}
+
+function moneyBlock(months) {
+  const spend = months.map(m => S.visits.filter(v => v.date.startsWith(m)).reduce((a, v) => a + (v.amount || 0), 0));
+  const total = spend.reduce((a, n) => a + n, 0);
+  if (!total) return '<div class="block"><h2>外食費</h2><div class="note">印を押したあと「金額・メモ」から金額を書いておくと、月ごとの外食費がここに出ます</div></div>';
+  const max = Math.max(...spend);
+  const byShop = {};
+  S.visits.forEach(v => {
+    if (!v.amount || !months.some(m => v.date.startsWith(m))) return;
+    const e = byShop[v.placeId] || (byShop[v.placeId] = { sum: 0, n: 0 });
+    e.sum += v.amount; e.n++;
+  });
+  const top = Object.entries(byShop).map(([id, e]) => [placeById(id), e]).filter(x => x[0]).sort((a, b) => b[1].sum - a[1].sum).slice(0, 5);
+  return `<div class="block"><h2>外食費</h2>
+    <div class="money-head"><span>今月 <b>${yen(spend[11])}</b></span><span>直近12か月 <b>${yen(total)}</b></span></div>
+    <div class="cols money" data-readout="#moneyRead">${spend.map((n, i) => `<div class="col" data-read="${Number(months[i].slice(5))}月　${yen(n)}">
+      ${n && (n === max || i === 11) ? `<span>${yenShort(n)}</span>` : ''}<i style="height:${n / max * 82}%;animation-delay:${i * 30}ms"></i></div>`).join('')}</div>
+    <div class="colx">${months.map(m => `<span>${Number(m.slice(5))}</span>`).join('')}</div>
+    <div class="readout note" id="moneyRead">棒をタップするとその月の金額が出ます</div>
+    ${top.map(([p, e], i) => `<button class="rankrow" data-open="${esc(p.id)}"><span class="no">${i + 1}</span>${sealOf(p, 40)}
+      <span class="nm">${esc(p.name)}<span class="hbar ai" style="width:${e.sum / top[0][1].sum * 100}%;animation-delay:${i * 60}ms"></span></span>
+      <span class="n">${yen(e.sum)}<small>${e.n}回</small></span></button>`).join('')}</div>`;
+}
+
+/* ---------- 一年のふりかえり ---------- */
+const KAN = '〇一二三四五六七八九';
+const kan = n => n < 10 ? KAN[n] : (n < 20 ? '' : KAN[Math.floor(n / 10)]) + '十' + (n % 10 ? KAN[n % 10] : '');
+const wareki = y => y >= 2019 ? '令和' + (y === 2019 ? '元' : kan(y - 2018)) + '年' : '平成' + kan(y - 1988) + '年';
+const visitYears = () => [...new Set(S.visits.map(v => Number(v.date.slice(0, 4))))].sort((a, b) => b - a);
+
+function reviewBlock() {
+  const years = visitYears().slice(0, 3);
+  return `<div class="block"><h2>一年のふりかえり</h2>${years.length
+    ? `<div class="links">${years.map(y => `<button class="btn" data-year="${y}">${wareki(y)}をふりかえる</button>`).join('')}</div>`
+    : '<div class="note">印を押すと、その年のふりかえりがここから見られます</div>'}</div>`;
+}
+
+function openYear(year) {
+  const ys = String(year), vs = S.visits.filter(v => v.date.startsWith(ys));
+  const first = {};
+  S.visits.forEach(v => { if (!first[v.placeId] || v.date < first[v.placeId]) first[v.placeId] = v.date; });
+  const per = {};
+  vs.forEach(v => { per[v.placeId] = (per[v.placeId] || 0) + 1; });
+  const shops = Object.keys(per).map(placeById).filter(Boolean);
+  const newShops = shops.filter(p => first[p.id].startsWith(ys));
+  const fulfilled = newShops.filter(p => first[p.id] > String(p.createdAt).slice(0, 10)).length;
+  const top = shops.map(p => [p, per[p.id]]).sort((a, b) => b[1] - a[1]).slice(0, 3);
+  const genre = {};
+  vs.forEach(v => { const p = placeById(v.placeId); if (p && p.genre) genre[p.genre] = (genre[p.genre] || 0) + 1; });
+  const genres = Object.entries(genre).sort((a, b) => b[1] - a[1]).slice(0, 3);
+  const byMonth = Array.from({ length: 12 }, (_, i) => vs.filter(v => Number(v.date.slice(5, 7)) === i + 1).length);
+  const bestMonth = byMonth.indexOf(Math.max(...byMonth));
+  const spent = vs.reduce((a, v) => a + (v.amount || 0), 0);
+  const lv = levelOf(S.visits.filter(v => v.date <= ys + '-12-31').length);
+  const lines = [
+    ['いちばん押した月', vs.length ? `${WAFU_MONTHS[bestMonth]}（${bestMonth + 1}月）　${byMonth[bestMonth]}印` : ''],
+    [year === new Date().getFullYear() ? 'いまの番付' : '年の終わりの番付', lv.title],
+    ['叶えた「行きたい」', fulfilled ? fulfilled + '軒' : ''],
+    ['外食費', spent ? yen(spent) : '']
+  ].filter(l => l[1]);
+  const years = visitYears();
+  $('#yearBody').innerHTML = `
+    <div class="grab"></div>
+    <div class="yr-hero"><span class="seal-wrap slam">${sealSvg(wareki(year), 'shu', 124, {})}</span><div class="cele-title yr-title">食べ歩きの記</div></div>
+    ${years.length > 1 ? `<div class="gchips" style="justify-content:center">${years.map(y => `<button class="chip ${y === year ? 'on' : ''}" data-year="${y}">${wareki(y)}</button>`).join('')}</div>` : ''}
+    <div class="tiles">
+      <div class="tile"><div class="v">${vs.length}</div><div class="l">押した印</div></div>
+      <div class="tile"><div class="v">${shops.length}</div><div class="l">行ったお店</div></div>
+      <div class="tile"><div class="v">${newShops.length}</div><div class="l">新しく開拓</div></div>
+    </div>
+    ${top.length ? `<div class="block"><h2>いちばん通ったお店</h2>${top.map(([p, n], i) => `<button class="rankrow" data-open="${esc(p.id)}"><span class="no">${i + 1}</span>${sealOf(p, 48)}<span class="nm">${esc(p.name)}</span><span class="n">${n}回</span></button>`).join('')}</div>` : ''}
+    ${genres.length ? `<div class="block"><h2>よく食べたジャンル</h2>${genres.map(([g, n], i) => `<div class="grow"><span>${esc(g)}</span><span><span class="hbar" style="display:block;width:${n / genres[0][1] * 100}%;animation-delay:${i * 50}ms"></span></span><span class="n">${n}</span></div>`).join('')}</div>` : ''}
+    <div class="block"><h2>この年のこと</h2>${lines.map(([k, v]) => `<div class="kv"><span>${k}</span><b>${v}</b></div>`).join('')}</div>
+    <button class="btn big" data-d="closeYear">とじる</button>`;
+  if (!$('#yearDlg').open) {
+    $('#yearDlg').showModal();
+    setTimeout(() => confetti(innerWidth / 2, innerHeight * .3, 50), 350);
+  }
+}
+
+/* ---------- 名古屋十六区の塗り分け ---------- */
+// おおよその位置関係で並べた区割り図: [区, 行, 列]
+const WARDS = [
+  ['西区', 1, 2], ['北区', 1, 3], ['守山区', 1, 4],
+  ['中村区', 2, 1], ['中区', 2, 2], ['東区', 2, 3], ['千種区', 2, 4], ['名東区', 2, 5],
+  ['中川区', 3, 1], ['熱田区', 3, 2], ['昭和区', 3, 3], ['天白区', 3, 4],
+  ['港区', 4, 1], ['南区', 4, 2], ['瑞穂区', 4, 3], ['緑区', 4, 4]
+];
+function wardBlock(idx) {
+  const info = {};
+  S.places.forEach(p => {
+    const m = idx[p.id] && String(p.address || '').match(/名古屋市([^\s0-9０-９]+?区)/);
+    if (!m) return;
+    const e = info[m[1]] || (info[m[1]] = { shops: 0, visits: 0, names: [] });
+    e.shops++; e.visits += idx[p.id].count; e.names.push(p.name);
+  });
+  const done = WARDS.filter(w => info[w[0]]).length;
+  return `<div class="block"><h2>名古屋十六区　${done} / 16</h2>
+    <div class="wards" data-readout="#wardRead">${WARDS.map(([w, r, c]) => {
+      const e = info[w], lv = !e ? 0 : e.shops >= 6 ? 3 : e.shops >= 3 ? 2 : 1;
+      const read = e ? `${w}　${e.shops}軒・${e.visits}印（${e.names.slice(0, 4).join('、')}${e.names.length > 4 ? ' ほか' : ''}）` : `${w}　まだ押していません`;
+      return `<button class="ward l${lv}" style="grid-area:${r}/${c}" data-read="${esc(read)}"><b>${w.replace('区', '')}</b><span>${e ? e.shops + '軒' : '　'}</span></button>`;
+    }).join('')}</div>
+    <div class="legend note"><i class="ward l0"></i>まだ<i class="ward l1"></i>1〜2軒<i class="ward l2"></i>3〜5軒<i class="ward l3"></i>6軒以上</div>
+    <div class="readout note" id="wardRead">区をタップすると内訳が出ます。住所の分かるお店だけを数えます</div></div>`;
 }
 
 /* ---------- 登録シート ---------- */
@@ -1251,10 +1415,11 @@ async function submitAdd(status, ev) {
 }
 
 /* ---------- 詳細シート ---------- */
-let detailId = null, deleteArmed = false;
+let detailId = null, deleteArmed = false, editVisitId = null;
 function openDetail(id, slamLast) {
   const p = placeById(id);
   if (!p) return;
+  if (id !== detailId) editVisitId = null;
   detailId = id; deleteArmed = false;
   const vs = visitsOf(id), asc = vs.slice().reverse(), n = vs.length, ink = inkOf(p);
   const cardNo = n ? Math.floor((n - 1) / 10) + 1 : 1;
@@ -1284,6 +1449,7 @@ function openDetail(id, slamLast) {
       <details><summary class="note" style="cursor:pointer">日付やメモを付けて記録する</summary>
         <div style="display:grid;gap:8px;padding-top:8px">
           <div class="joined" style="grid-template-columns:auto 1fr"><input type="date" class="inline-input" id="vDate" value="${today()}" max="${today()}"><input class="inline-input" id="vMemo" placeholder="食べたもの・ひとこと"></div>
+          <input class="inline-input" id="vAmount" inputmode="numeric" placeholder="金額（円）">
           <button class="btn solid" data-d="visit">この内容で印を押す</button>
         </div></details>
     </div>
@@ -1291,7 +1457,7 @@ function openDetail(id, slamLast) {
     <div class="field"><span>ジャンル（判子のインクの色が変わります）</span><div class="gchips" id="dGenres">${genreSet.map(g => `<button type="button" class="chip ${g === p.genre ? 'on' : ''}" data-genre="${esc(g)}">${esc(g)}</button>`).join('')}</div></div>
     <label class="field"><span>メモ（おすすめ、次に頼みたいもの）</span><textarea id="dMemo">${esc(p.memo)}</textarea></label>
     <label class="field"><span>タグ（カンマ区切り　例: デート, 個室, ランチ）</span><input id="dTags" value="${esc(p.tags)}"></label>
-    ${vs.length ? `<div class="field"><span>これまでの来店</span><div>${vs.map(v => `<div class="visit"><span class="d">${esc(v.date)}</span><span class="m">${esc(v.memo)}</span><button data-d="delVisit" data-id="${esc(v.id)}" aria-label="${esc(v.date)}の来店を削除">✕</button></div>`).join('')}</div></div>` : ''}
+    ${vs.length ? `<div class="field"><span>これまでの来店${spentLabel(vs)}</span><div>${vs.map(visitRow).join('')}</div></div>` : ''}
     <details><summary class="note" style="cursor:pointer">店名・状態を変える／削除する</summary>
       <div style="display:grid;gap:10px;padding-top:10px">
         <label class="field"><span>店名</span><input id="dName" value="${esc(p.name)}"></label>
@@ -1302,6 +1468,8 @@ function openDetail(id, slamLast) {
       </div></details>
     <button class="btn big" data-d="close">とじる</button>`;
   if (!$('#detailDlg').open) $('#detailDlg').showModal();
+  const editing = $('#veMemo');
+  if (editing) editing.focus();
 }
 
 /** シートの入力欄を読み取って保存（入力のたびに自動保存） */
@@ -1379,6 +1547,8 @@ $('#fitBtn').onclick = () => { if (map && mapPts.length) map.fitBounds(mapPts, {
 $('#stats').onclick = e => {
   const open = e.target.closest('[data-open]');
   if (open) return openDetail(open.dataset.open);
+  const yr = e.target.closest('[data-year]');
+  if (yr) return openYear(Number(yr.dataset.year));
   if (e.target.id === 'roulette') return spinRoulette();
   if (e.target.id === 'apiSave') {
     if ($('#apiInput').value.trim() && setApiUrl($('#apiInput').value)) location.reload();
@@ -1387,7 +1557,7 @@ $('#stats').onclick = e => {
   }
   const read = e.target.closest('[data-read]');
   if (read) {
-    const box = read.closest('#heat') ? '#heatRead' : '#colRead';
+    const box = read.closest('[data-readout]').dataset.readout;
     read.parentElement.querySelectorAll('.sel').forEach(x => x.classList.remove('sel'));
     read.classList.add('sel');
     $(box).textContent = read.dataset.read;
@@ -1428,9 +1598,11 @@ $('#detailBody').addEventListener('click', e => {
   if (act === 'close') closeSheet($('#detailDlg'));
   else if (act === 'stamp') { addVisit(detailId, { x: e.clientX, y: e.clientY }); openDetail(detailId, true); }
   else if (act === 'visit') {
-    addVisit(detailId, { date: $('#vDate').value || today(), memo: $('#vMemo').value.trim(), x: e.clientX, y: e.clientY });
+    addVisit(detailId, { date: $('#vDate').value || today(), memo: $('#vMemo').value.trim(), amount: parseAmount($('#vAmount').value), x: e.clientX, y: e.clientY });
     openDetail(detailId, true);
-  } else if (act === 'delVisit') { deleteVisit(b.dataset.id); openDetail(detailId); }
+  } else if (act === 'editVisit') { editVisitId = b.dataset.id; openDetail(detailId); }
+  else if (act === 'saveVisit') saveVisitEdit();
+  else if (act === 'delVisit') { deleteVisit(b.dataset.id); openDetail(detailId); }
   else if (act === 'delete') {
     if (!deleteArmed) { deleteArmed = true; b.textContent = '本当に削除する（来店履歴も消えます）'; return; }
     deletePlace(detailId); closeSheet($('#detailDlg')); toast('削除しました');
@@ -1439,9 +1611,21 @@ $('#detailBody').addEventListener('click', e => {
 $('#detailBody').addEventListener('change', e => { if (['dName', 'dStatus', 'dTags', 'dMemo'].includes(e.target.id)) saveDetail(); });
 document.querySelectorAll('dialog').forEach(d => {
   d.addEventListener('click', e => { if (e.target === d) closeSheet(d); });
-  d.addEventListener('close', () => d.querySelectorAll('#fx, #toast, #cele').forEach(el => layer().appendChild(el)));
+  d.addEventListener('close', () => {
+    d.querySelectorAll('#fx, #toast, #cele').forEach(el => layer().appendChild(el));
+    if (d.id === 'detailDlg') editVisitId = null;
+  });
 });
 $('#toastUndo').onclick = () => { $('#toast').classList.remove('show'); if (toastUndo) toastUndo(); };
+$('#toastExtra').onclick = () => { $('#toast').classList.remove('show'); if (toastExtra) toastExtra.fn(); };
+
+$('#yearBody').addEventListener('click', e => {
+  const yr = e.target.closest('[data-year]');
+  if (yr) return openYear(Number(yr.dataset.year));
+  const open = e.target.closest('[data-open]');
+  if (open) return openDetail(open.dataset.open);
+  if (e.target.closest('[data-d="closeYear"]')) closeSheet($('#yearDlg'));
+});
 
 /* ========== 起動 ========== */
 (async function init() {

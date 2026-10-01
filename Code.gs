@@ -6,7 +6,7 @@
 
 const SCHEMA = {
   places: ['id', 'name', 'status', 'genre', 'tags', 'rating', 'memo', 'address', 'lat', 'lng', 'mapsUrl', 'gid', 'createdAt', 'updatedAt'],
-  visits: ['id', 'placeId', 'date', 'memo', 'createdAt']
+  visits: ['id', 'placeId', 'date', 'memo', 'createdAt', 'amount']
 };
 
 function doGet() {
@@ -68,6 +68,13 @@ function sheet_(name) {
     sh.getRange(1, 1, sh.getMaxRows(), SCHEMA[name].length).setNumberFormat('@');
     sh.appendRow(SCHEMA[name]);
     sh.setFrozenRows(1);
+  }
+  // 列をあとから増やしたとき（例: 金額）は、見出しと書式を足す。既存の行はそのまま
+  const cols = SCHEMA[name];
+  const head = sh.getRange(1, 1, 1, cols.length).getDisplayValues()[0];
+  if (head.join() !== cols.join()) {
+    sh.getRange(1, 1, sh.getMaxRows(), cols.length).setNumberFormat('@');
+    sh.getRange(1, 1, 1, cols.length).setValues([cols]);
   }
   return sh;
 }
