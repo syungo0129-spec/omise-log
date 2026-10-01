@@ -2,144 +2,279 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>お店ログ</title>
 <link rel="icon" href="icon.png">
 <link rel="apple-touch-icon" href="icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Antique&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
+  /* レイアウト: スマホ幅1カラムの「スタンプ帳」。主役は店ごとの判子（インク5色）、まわりは静かな紙と墨 */
   :root {
-    --bg: #f6f5f2; --card: #fff; --text: #1f1d1a; --sub: #76716a; --line: #e4e0d9;
-    --accent: #e8590c; --accent-weak: #fff1e6; --want: #1c7ed6; --want-weak: #e7f3ff; --danger: #c92a2a;
+    --paper: #eff2ee; --card: #fbfcfa; --ink: #15181c; --sub: #5f666c; --line: #d7dcd5; --wash: #e3e7e1;
+    --shu: #d43a29; --ai: #2647a2; --matsu: #23744a; --fuji: #7444a2; --kaki: #b9630c;
+    --on-ink: #fbfcfa; --star: #c98a00; --danger: #b3261e; --shadow: 0 1px 2px rgba(21, 24, 28, .06), 0 8px 24px rgba(21, 24, 28, .07);
+    --font-display: 'Dela Gothic One', 'Hiragino Sans', 'Yu Gothic UI', sans-serif;
+    --font-seal: 'Zen Antique', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
+    --font-body: 'Zen Kaku Gothic New', -apple-system, 'Hiragino Sans', 'Yu Gothic UI', Meiryo, sans-serif;
+    color-scheme: light;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #17161a; --card: #232227; --text: #eeece8; --sub: #a09b94; --line: #38363d;
-      --accent: #ff8a3d; --accent-weak: #3a2a1f; --want: #5aa9f0; --want-weak: #1d2c3d;
+      --paper: #121418; --card: #1c1f24; --ink: #eef0ec; --sub: #9ba1a7; --line: #32363c; --wash: #262a30;
+      --shu: #ff6f5c; --ai: #86a4ff; --matsu: #62c98d; --fuji: #c396f2; --kaki: #f0a34c;
+      --on-ink: #121418; --star: #f2b93b; --danger: #ff8a80; --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .35);
+      color-scheme: dark;
     }
   }
-  * { box-sizing: border-box; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; height: 100%; }
-  body {
-    background: var(--bg); color: var(--text);
-    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic UI", Meiryo, sans-serif;
-    -webkit-text-size-adjust: 100%;
-  }
+  body { background: var(--paper); color: var(--ink); font: 500 15px/1.55 var(--font-body); -webkit-text-size-adjust: 100%; }
   button, input, select, textarea { font: inherit; color: inherit; }
-  button { cursor: pointer; }
-  #app { max-width: 760px; margin: 0 auto; min-height: 100%; display: flex; flex-direction: column; padding-bottom: 64px; }
-
-  header { display: flex; align-items: center; gap: 8px; padding: 12px 16px 4px; }
-  header h1 { font-size: 20px; margin: 0; flex: 1; }
-  #sync { font-size: 12px; color: var(--sub); }
-  #sync.error { color: var(--danger); text-decoration: underline; cursor: pointer; }
-  .btn { border: 1px solid var(--line); background: var(--card); border-radius: 10px; padding: 8px 12px; text-decoration: none; color: var(--text); display: inline-block; text-align: center; }
-  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
-  .btn.want { background: var(--want); border-color: var(--want); color: #fff; font-weight: 700; }
-  .btn.danger { color: var(--danger); }
-  .btn.small { padding: 4px 10px; font-size: 13px; }
-
-  .tools { padding: 8px 16px; display: grid; gap: 8px; }
-  .tools input[type=search], .field input, .field select, .field textarea {
-    width: 100%; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); font-size: 16px;
-  }
-  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  .chips { display: flex; gap: 6px; }
-  .chip { border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 5px 12px; font-size: 13px; }
-  .chip.on { background: var(--text); color: var(--bg); border-color: var(--text); }
-  .tools select { padding: 6px 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); font-size: 13px; max-width: 46%; }
-
-  #list { padding: 0 16px; display: grid; gap: 8px; }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px; display: flex; gap: 10px; align-items: center; }
-  .card .main { flex: 1; min-width: 0; cursor: pointer; }
-  .name { font-weight: 700; overflow-wrap: anywhere; }
-  .meta { font-size: 13px; color: var(--sub); overflow-wrap: anywhere; }
-  .meta b { color: var(--accent); font-size: 15px; }
-  .badge { font-size: 11px; font-weight: 700; border-radius: 6px; padding: 1px 6px; margin-left: 4px; vertical-align: 2px; white-space: nowrap; }
-  .badge.want { background: var(--want-weak); color: var(--want); }
-  .stars { color: #f0a500; letter-spacing: 1px; }
-  .card .actions { display: grid; gap: 6px; flex: none; }
-  .empty { text-align: center; color: var(--sub); padding: 40px 16px; }
-
-  nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--card); border-top: 1px solid var(--line); display: flex; justify-content: center; padding-bottom: env(safe-area-inset-bottom); z-index: 1000; }
-  nav button { flex: 1; max-width: 250px; border: 0; background: none; padding: 12px 0; color: var(--sub); font-size: 13px; }
-  nav button.on { color: var(--accent); font-weight: 700; }
-
-  #map { height: calc(100vh - 150px); min-height: 320px; margin: 8px 16px; border-radius: 14px; border: 1px solid var(--line); }
-  .leaflet-popup-content { font-size: 14px; }
-
-  #stats { padding: 8px 16px; display: grid; gap: 12px; }
-  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
-  .tile { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; }
-  .tile .v { font-size: 24px; font-weight: 700; }
-  .tile .l { font-size: 12px; color: var(--sub); }
-  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
-  .panel h2 { font-size: 15px; margin: 0 0 8px; }
-  .bar { display: grid; grid-template-columns: minmax(70px, 40%) 1fr 36px; gap: 8px; align-items: center; font-size: 13px; padding: 2px 0; }
-  .bar .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .bar .b { height: 10px; border-radius: 5px; background: var(--accent); min-width: 2px; }
-  .bar .n { text-align: right; font-variant-numeric: tabular-nums; }
-  .panel ol, .panel ul { margin: 4px 0; padding-left: 22px; font-size: 13px; }
-  .panel code, .panel input[readonly] { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
-  .panel input[readonly] { width: 100%; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
-
-  dialog { border: 0; border-radius: 16px; padding: 0; width: min(560px, calc(100vw - 24px)); max-height: calc(100vh - 32px); background: var(--bg); color: var(--text); }
-  dialog::backdrop { background: rgba(0, 0, 0, .5); }
-  .dlg { padding: 16px; display: grid; gap: 10px; }
-  .dlg h2 { margin: 0; font-size: 17px; }
-  .field { display: grid; gap: 3px; }
-  .field > span { font-size: 12px; color: var(--sub); }
-  .field textarea { min-height: 64px; resize: vertical; }
-  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .rate button { border: 0; background: none; font-size: 26px; padding: 0 2px; color: var(--line); }
-  .rate button.on { color: #f0a500; }
-  .visits { display: grid; gap: 4px; }
-  .visit { display: flex; gap: 8px; align-items: center; font-size: 14px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; }
-  .visit .d { font-variant-numeric: tabular-nums; flex: none; }
-  .visit .m { flex: 1; color: var(--sub); overflow-wrap: anywhere; }
-  .visit button { border: 0; background: none; color: var(--sub); font-size: 16px; }
-  .note { font-size: 13px; color: var(--sub); }
-  .hit { background: var(--accent-weak); border-radius: 10px; padding: 8px 10px; font-size: 14px; }
-
-  #toast { position: fixed; left: 50%; bottom: 76px; transform: translateX(-50%); background: #222; color: #fff; border-radius: 12px; padding: 10px 14px; font-size: 14px; display: none; gap: 12px; align-items: center; z-index: 2000; width: max-content; max-width: calc(100vw - 24px); }
-  #toast.show { display: flex; }
-  #toast button { border: 0; background: none; color: #ffb37a; font-weight: 700; flex: none; }
+  button { cursor: pointer; border: 0; background: none; padding: 0; }
+  :focus-visible { outline: 2px solid var(--ai); outline-offset: 2px; }
   [hidden] { display: none !important; }
+  #app { max-width: 620px; margin: 0 auto; padding: 0 16px calc(96px + env(safe-area-inset-bottom)); display: grid; gap: 14px; }
+
+  /* ---------- ヘッダー ---------- */
+  header { display: flex; align-items: baseline; gap: 10px; padding-top: calc(14px + env(safe-area-inset-top)); }
+  header h1 { font: 400 22px/1.2 var(--font-display); margin: 0; letter-spacing: .02em; }
+  #sync { font-size: 12px; color: var(--sub); margin-left: auto; }
+  #sync.error { color: var(--danger); text-decoration: underline; cursor: pointer; }
+
+  /* ---------- 今月のまとめ ---------- */
+  .hero { display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center; }
+  .hero-num { font-size: 56px; font-weight: 900; line-height: 1; letter-spacing: -.02em; }
+  .hero-num small { font-size: 16px; font-weight: 700; margin-left: 2px; }
+  .hero-side { display: grid; gap: 5px; min-width: 0; }
+  .hero-label { font-size: 12px; color: var(--sub); }
+  .hero-level { font-weight: 700; }
+  .meter { height: 8px; border-radius: 4px; background: var(--wash); overflow: hidden; }
+  .meter i { display: block; height: 100%; border-radius: 4px; background: var(--shu); transition: width .7s cubic-bezier(.2, .8, .2, 1); }
+
+  /* ---------- 絞り込み ---------- */
+  .seg { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); background: var(--wash); border-radius: 14px; padding: 4px; }
+  .seg::before { content: ''; position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc((100% - 8px) / 3); border-radius: 10px; background: var(--card); box-shadow: var(--shadow); transform: translateX(calc(var(--i, 0) * 100%)); transition: transform .32s cubic-bezier(.3, 1.4, .5, 1); }
+  .seg button { position: relative; padding: 8px 0; font-weight: 700; font-size: 14px; color: var(--sub); transition: color .2s; }
+  .seg button.on { color: var(--ink); }
+  .seg button span { font-weight: 500; font-size: 12px; margin-left: 3px; }
+  .finder { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+  .finder input, .finder select { border: 1px solid var(--line); background: var(--card); border-radius: 12px; padding: 9px 12px; font-size: 16px; min-width: 0; }
+  .finder select { font-size: 13px; padding: 9px 6px; max-width: 128px; }
+  .tags { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px; }
+  .tags::-webkit-scrollbar { display: none; }
+  .chip { flex: none; border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 4px 12px; font-size: 13px; transition: transform .15s; }
+  .chip:active { transform: scale(.94); }
+  .chip.on { background: var(--ink); border-color: var(--ink); color: var(--on-ink); }
+
+  /* ---------- お店カード ---------- */
+  #list { display: grid; gap: 10px; }
+  .shop { display: grid; grid-template-columns: 1fr auto; align-items: center; background: var(--card); border-radius: 18px; box-shadow: var(--shadow); }
+  #list.enter .shop { animation: rise .45s cubic-bezier(.2, .8, .2, 1) backwards; animation-delay: calc(min(var(--n), 10) * 40ms); }
+  .shop.thud { animation: thud .4s ease-out; }
+  .shop-main { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: center; text-align: left; padding: 12px 4px 12px 12px; min-width: 0; border-radius: 18px; }
+  .shop-text { display: grid; gap: 1px; min-width: 0; }
+  .shop-name { font-weight: 700; font-size: 16px; line-height: 1.35; overflow-wrap: anywhere; }
+  .shop-meta { font-size: 12px; color: var(--sub); overflow-wrap: anywhere; }
+  .shop-count { font-size: 13px; color: var(--sub); display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+  .shop-count b { font-size: 20px; font-weight: 900; color: var(--ink); line-height: 1.1; }
+  .rank { font-size: 11px; font-weight: 700; border: 1px solid currentColor; border-radius: 6px; padding: 0 5px; }
+  .dots { display: flex; gap: 3px; margin-top: 3px; }
+  .dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--wash); }
+  .dots i.f { background: currentColor; }
+  .press { margin: 0 12px 0 8px; width: 56px; height: 56px; border-radius: 50%; background: currentColor; display: grid; place-items: center; box-shadow: 0 4px 0 color-mix(in oklab, currentColor 55%, #000), 0 8px 14px rgba(0, 0, 0, .14); transition: transform .12s, box-shadow .12s; }
+  .press span { color: var(--on-ink); font-weight: 900; font-size: 14px; letter-spacing: .05em; }
+  .press:active { transform: translateY(4px) scale(.96); box-shadow: 0 0 0 color-mix(in oklab, currentColor 55%, #000), 0 2px 4px rgba(0, 0, 0, .14); }
+  .seal-wrap { display: grid; place-items: center; position: relative; }
+  .seal { display: block; }
+  .seal.blank text { opacity: .45; }
+  .seal-wrap.slam { animation: slam .55s cubic-bezier(.2, 1.5, .4, 1); }
+  .seal-wrap.slam::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid currentColor; animation: ripple .6s ease-out forwards; }
+  .empty { text-align: center; color: var(--sub); padding: 28px 8px; display: grid; gap: 12px; justify-items: center; }
+  .empty b { color: var(--ink); font-size: 17px; }
+
+  /* ---------- ボタン類 ---------- */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--line); background: var(--card); border-radius: 12px; padding: 9px 14px; font-weight: 700; text-decoration: none; color: var(--ink); transition: transform .12s; }
+  .btn:active { transform: scale(.96); }
+  .btn.solid { background: var(--ink); border-color: var(--ink); color: var(--on-ink); }
+  .btn.big { padding: 14px; font-size: 16px; border-radius: 16px; }
+  .btn.small { padding: 5px 11px; font-size: 13px; }
+  .btn.danger { color: var(--danger); }
+  .btn.stampbtn { background: var(--shu); border-color: var(--shu); color: var(--on-ink); }
+
+  /* ---------- 下部ナビと登録ボタン ---------- */
+  nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 1000; display: flex; justify-content: center; background: color-mix(in oklab, var(--card) 88%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); }
+  nav button[data-tab] { flex: 1; max-width: 180px; padding: 9px 0 8px; display: grid; justify-items: center; gap: 1px; color: var(--sub); font-size: 11px; font-weight: 700; }
+  nav button[data-tab] svg { transition: transform .3s cubic-bezier(.3, 1.6, .5, 1); }
+  nav button.on { color: var(--ink); }
+  nav button.on svg { transform: translateY(-2px) scale(1.12); }
+  nav #fab { flex: none; align-self: center; width: 54px; height: 54px; margin: -18px 14px 0 6px; padding: 0; border-radius: 50%; background: var(--ink); color: var(--on-ink); display: grid; place-items: center; box-shadow: 0 8px 20px rgba(0, 0, 0, .28); transition: transform .18s cubic-bezier(.3, 1.6, .5, 1); }
+  nav #fab:active { transform: scale(.88) rotate(90deg); }
+
+  /* ---------- マップ ---------- */
+  #map { height: calc(100dvh - 190px); min-height: 320px; border-radius: 18px; box-shadow: var(--shadow); z-index: 0; }
+  .maptools { display: flex; gap: 8px; align-items: center; }
+  .pin { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--card); box-shadow: 0 3px 10px rgba(0, 0, 0, .3); position: relative; }
+  .pin b { position: absolute; right: -4px; top: -4px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; background: var(--ink); color: var(--on-ink); font: 700 11px/18px var(--font-body); text-align: center; }
+  .leaflet-popup-content-wrapper { background: var(--card); color: var(--ink); border-radius: 14px; }
+  .leaflet-popup-tip { background: var(--card); }
+  .leaflet-popup-content { font: 500 14px/1.5 var(--font-body); margin: 12px; display: grid; gap: 6px; }
+
+  /* ---------- きろく ---------- */
+  #stats { display: grid; gap: 22px; }
+  .block { display: grid; gap: 10px; }
+  .block h2 { font-size: 15px; font-weight: 900; margin: 0; }
+  .note { font-size: 12.5px; color: var(--sub); }
+  .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .tile { background: var(--card); border-radius: 16px; padding: 12px; box-shadow: var(--shadow); }
+  .tile .v { font-size: 26px; font-weight: 900; line-height: 1.15; }
+  .tile .l { font-size: 12px; color: var(--sub); }
+  .heat { display: grid; grid-template-rows: repeat(7, 1fr); grid-auto-flow: column; grid-auto-columns: 1fr; gap: 3px; }
+  .heat i { aspect-ratio: 1; border-radius: 3px; background: var(--wash); }
+  .heat i.l1 { background: color-mix(in oklab, var(--shu) 30%, var(--wash)); }
+  .heat i.l2 { background: color-mix(in oklab, var(--shu) 62%, var(--wash)); }
+  .heat i.l3 { background: var(--shu); }
+  .heat i.future { background: none; }
+  .heat i.sel, .cols .col.sel i { outline: 2px solid var(--ink); outline-offset: 1px; }
+  .cols { display: grid; grid-template-columns: repeat(12, 1fr); gap: 2px; height: 120px; align-items: end; border-bottom: 1px solid var(--line); }
+  .col { height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 3px; cursor: pointer; }
+  .col i { width: min(24px, 70%); border-radius: 4px 4px 0 0; background: var(--shu); min-height: 0; animation: grow .7s cubic-bezier(.2, .8, .2, 1) backwards; transform-origin: bottom; }
+  .col span { font-size: 11px; font-weight: 700; }
+  .colx { display: grid; grid-template-columns: repeat(12, 1fr); gap: 2px; font-size: 11px; color: var(--sub); text-align: center; font-variant-numeric: tabular-nums; }
+  .readout { font-size: 13px; min-height: 20px; }
+  .rankrow { display: grid; grid-template-columns: 20px auto 1fr auto; gap: 10px; align-items: center; text-align: left; width: 100%; padding: 4px 0; }
+  .rankrow .no { font-weight: 900; color: var(--sub); text-align: center; }
+  .rankrow .nm { min-width: 0; display: grid; gap: 4px; font-weight: 700; overflow-wrap: anywhere; }
+  .rankrow .n { font-weight: 900; font-variant-numeric: tabular-nums; }
+  .hbar { height: 8px; border-radius: 0 4px 4px 0; background: var(--shu); animation: growx .7s cubic-bezier(.2, .8, .2, 1) backwards; transform-origin: left; }
+  .grow { display: grid; grid-template-columns: minmax(64px, 30%) 1fr 30px; gap: 8px; align-items: center; font-size: 13px; }
+  .grow .n { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .badges { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px 6px; }
+  .badge { display: grid; justify-items: center; gap: 3px; text-align: center; font-size: 11px; line-height: 1.3; }
+  .badge b { font-size: 12px; }
+  .badge.locked { color: var(--sub); }
+  .slot { background: var(--card); border-radius: 16px; box-shadow: var(--shadow); padding: 12px; display: flex; gap: 12px; align-items: center; min-height: 76px; }
+  .slot .who { flex: 1; min-width: 0; font-weight: 700; overflow-wrap: anywhere; }
+  .slot.spin .who { animation: flick .09s linear infinite; }
+  details.more { border-top: 1px solid var(--line); padding-top: 12px; }
+  details.more summary { font-weight: 700; cursor: pointer; }
+  details.more .inner { display: grid; gap: 14px; padding-top: 12px; }
+  details.more ol { margin: 4px 0; padding-left: 20px; font-size: 13px; }
+  .copy { width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); font: 12px ui-monospace, Consolas, monospace; }
+
+  /* ---------- シート（下から出るダイアログ） ---------- */
+  dialog.sheet { border: 0; padding: 0; margin: auto auto 0; width: 100%; max-width: 620px; max-height: 92dvh; border-radius: 26px 26px 0 0; background: var(--paper); color: var(--ink); overflow-y: auto; animation: sheetUp .38s cubic-bezier(.2, .9, .25, 1.05); }
+  dialog.sheet::backdrop { background: rgba(10, 12, 14, .5); animation: fade .25s; }
+  dialog.sheet.closing { animation: sheetDown .2s ease-in forwards; }
+  .sheet-body { padding: 10px 16px calc(20px + env(safe-area-inset-bottom)); display: grid; gap: 14px; }
+  .grab { width: 40px; height: 5px; border-radius: 3px; background: var(--line); justify-self: center; }
+  .sheet h2 { font-size: 20px; font-weight: 900; margin: 0; line-height: 1.3; overflow-wrap: anywhere; }
+  .field { display: grid; gap: 4px; }
+  .field > span { font-size: 12px; color: var(--sub); }
+  .field input, .field select, .field textarea, .inline-input { width: 100%; min-width: 0; padding: 11px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); font-size: 16px; }
+  .field textarea { min-height: 70px; resize: vertical; }
+  .joined { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .preview { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; background: var(--card); border-radius: 18px; padding: 14px; box-shadow: var(--shadow); min-height: 104px; }
+  .preview .pv-name { font-weight: 900; font-size: 17px; overflow-wrap: anywhere; }
+  .preview .seal-wrap.pop { animation: pop .35s cubic-bezier(.3, 1.6, .5, 1); }
+  .head { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; }
+  .links { display: flex; gap: 8px; flex-wrap: wrap; }
+  .stampcard { background: var(--card); border-radius: 18px; box-shadow: var(--shadow); padding: 14px; display: grid; gap: 10px; }
+  .stampcard .top { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .stampcard .top b { font-size: 30px; font-weight: 900; line-height: 1; }
+  .slots { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px 4px; }
+  .cell { display: grid; justify-items: center; gap: 2px; font-size: 11px; color: var(--sub); font-variant-numeric: tabular-nums; }
+  .cell .ring { width: 48px; height: 48px; border-radius: 50%; border: 2px dashed var(--line); display: grid; place-items: center; }
+  .cell button.ring { border-color: currentColor; font-weight: 900; font-size: 13px; animation: pulse 1.6s ease-in-out infinite; }
+  .stars { display: flex; gap: 2px; }
+  .stars button { font-size: 30px; line-height: 1; color: var(--line); transition: transform .18s cubic-bezier(.3, 1.8, .5, 1); }
+  .stars button.on { color: var(--star); }
+  .stars button:active { transform: scale(1.35); }
+  .gchips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .visit { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; font-size: 14px; padding: 7px 0; border-bottom: 1px solid var(--line); }
+  .visit .d { font-variant-numeric: tabular-nums; font-weight: 700; }
+  .visit .m { color: var(--sub); overflow-wrap: anywhere; }
+  .visit button { color: var(--sub); padding: 4px 8px; }
+  .hit { background: var(--wash); border-radius: 12px; padding: 9px 12px; font-size: 14px; }
+  .check { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--sub); }
+
+  /* ---------- 演出 ---------- */
+  #fx { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3000; }
+  #cele { position: fixed; inset: 0; z-index: 2500; display: grid; place-items: center; background: color-mix(in oklab, var(--paper) 90%, transparent); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); animation: fade .2s; }
+  #cele.out { animation: fadeOut .3s forwards; }
+  .cele-in { display: grid; justify-items: center; gap: 10px; text-align: center; padding: 24px; }
+  .cele-in .seal-wrap { animation: slam .6s cubic-bezier(.2, 1.5, .4, 1) .05s backwards; }
+  .cele-title { font: 400 30px/1.25 var(--font-display); animation: rise .5s .3s backwards; }
+  .cele-sub { font-weight: 700; color: var(--sub); animation: rise .5s .42s backwards; overflow-wrap: anywhere; }
+  #toast { position: fixed; left: 50%; bottom: calc(86px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: var(--ink); color: var(--on-ink); border-radius: 14px; padding: 10px 14px; font-size: 14px; display: none; gap: 12px; align-items: center; z-index: 2000; width: max-content; max-width: calc(100vw - 32px); box-shadow: 0 8px 24px rgba(0, 0, 0, .25); }
+  #toast.show { display: flex; animation: rise .3s cubic-bezier(.2, .8, .2, 1); }
+  #toast button { color: var(--kaki); font-weight: 900; flex: none; }
+
+  @keyframes slam { 0% { transform: scale(2.6) rotate(-16deg); opacity: 0; } 55% { transform: scale(.9) rotate(2deg); opacity: 1; } 100% { transform: none; } }
+  @keyframes ripple { from { transform: scale(.8); opacity: .7; } to { transform: scale(1.9); opacity: 0; } }
+  @keyframes thud { 0% { transform: none; } 30% { transform: translateY(3px) scale(.985); } 100% { transform: none; } }
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } }
+  @keyframes pop { from { transform: scale(.5); opacity: 0; } }
+  @keyframes pulse { 50% { transform: scale(1.08); } }
+  @keyframes grow { from { transform: scaleY(0); } }
+  @keyframes growx { from { transform: scaleX(0); } }
+  @keyframes flick { 50% { opacity: .35; transform: translateY(-2px); } }
+  @keyframes fade { from { opacity: 0; } }
+  @keyframes fadeOut { to { opacity: 0; } }
+  @keyframes sheetUp { from { transform: translateY(100%); } }
+  @keyframes sheetDown { to { transform: translateY(100%); } }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  }
 </style>
 </head>
 <body>
-<div id="app">
-  <header>
-    <h1>お店ログ</h1>
-    <span id="sync"></span>
-    <button class="btn primary" id="addBtn">＋ 登録</button>
-  </header>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <!-- 判子のかすれ -->
+  <filter id="inkfx" x="-5%" y="-5%" width="110%" height="110%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="7" result="n"/>
+    <feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -5 3.6" result="m"/>
+    <feComposite in="SourceGraphic" in2="m" operator="in"/>
+  </filter>
+</svg>
 
-  <section id="tab-list">
-    <div class="tools">
-      <input type="search" id="q" placeholder="店名・メモ・タグで検索">
-      <div class="row">
-        <div class="chips" id="filters"></div>
-        <span style="flex:1"></span>
-        <select id="tag" aria-label="ジャンル・タグ"></select>
-        <select id="sort" aria-label="並べ替え">
-          <option value="recent">最近行った順</option>
-          <option value="count">訪問回数順</option>
-          <option value="near">現在地から近い順</option>
-          <option value="rating">評価順</option>
-          <option value="added">登録が新しい順</option>
-          <option value="name">名前順</option>
-        </select>
+<div id="app">
+  <header><h1>お店ログ</h1><span id="sync"></span></header>
+
+  <section id="tab-list" style="display:grid;gap:14px">
+    <div class="hero">
+      <div class="hero-num"><span id="heroNum">0</span><small>回</small></div>
+      <div class="hero-side">
+        <span class="hero-label">今月押したスタンプ</span>
+        <span class="hero-level" id="heroLevel"></span>
+        <div class="meter"><i id="heroMeter" style="width:0"></i></div>
+        <span class="hero-label" id="heroNext"></span>
       </div>
     </div>
+    <div class="seg" id="seg"></div>
+    <div class="finder">
+      <input type="search" id="q" placeholder="店名・タグでさがす" aria-label="検索">
+      <select id="sort" aria-label="並べ替え">
+        <option value="recent">最近行った順</option>
+        <option value="count">回数が多い順</option>
+        <option value="near">近い順</option>
+        <option value="rating">評価順</option>
+        <option value="added">新しく登録した順</option>
+        <option value="name">名前順</option>
+      </select>
+    </div>
+    <div class="tags" id="tags"></div>
     <div id="list"></div>
   </section>
 
-  <section id="tab-map" hidden>
-    <div class="tools"><div class="row">
+  <section id="tab-map" hidden style="display:grid;gap:10px">
+    <div class="maptools">
       <button class="btn small" id="locBtn">現在地へ</button>
-      <span class="note"><span style="color:var(--accent)">● 行った</span>　<span style="color:var(--want)">● 行きたい</span></span>
-    </div></div>
+      <span class="note">判子をタップするとその場でスタンプを押せます</span>
+    </div>
     <div id="map"></div>
   </section>
 
@@ -147,14 +282,24 @@
 </div>
 
 <nav>
-  <button data-tab="list" class="on">リスト</button>
-  <button data-tab="map">マップ</button>
-  <button data-tab="stats">統計・設定</button>
+  <button data-tab="list" class="on">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="6"/><path d="M5 20h14M8 20v-2.5M16 20v-2.5"/></svg>スタンプ帳
+  </button>
+  <button data-tab="map">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.500C5 14.800 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>マップ
+  </button>
+  <button data-tab="stats">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V11M12 20V4M19 20v-6"/></svg>きろく
+  </button>
+  <button id="fab" aria-label="お店を登録">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+  </button>
 </nav>
 
-<dialog id="addDlg"><div class="dlg" id="addBody"></div></dialog>
-<dialog id="detailDlg"><div class="dlg" id="detailBody"></div></dialog>
-<div id="toast"><span id="toastMsg"></span><button id="toastUndo">取り消す</button></div>
+<dialog id="addDlg" class="sheet"><div class="sheet-body" id="addBody"></div></dialog>
+<dialog id="detailDlg" class="sheet"><div class="sheet-body" id="detailBody"></div></dialog>
+<div id="toast" role="status"><span id="toastMsg"></span><button id="toastUndo">取り消す</button></div>
+<canvas id="fx"></canvas>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
@@ -167,7 +312,14 @@ const ymd = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.get
 const today = () => ymd(new Date());
 const now = () => new Date().toISOString();
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const GENRES = ['ラーメン', 'カフェ', '居酒屋', '和食', '洋食', '中華', '焼肉', '寿司', 'カレー', 'バー', 'スイーツ', 'その他'];
+const shortDate = s => {
+  if (!s) return '';
+  const [y, m, d] = s.split('-').map(Number);
+  return (y === new Date().getFullYear() ? '' : y + '/') + m + '/' + d;
+};
+const hash = s => { let h = 2166136261; for (const c of String(s)) { h ^= c.codePointAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
 
 function store(key, value) {
   try {
@@ -212,7 +364,47 @@ function parseMapsUrl(url) {
   return out;
 }
 
-/* ========== バックエンド（Apps Script / ローカル） ========== */
+/* ========== 判子（店名から自動で作る） ========== */
+const INKS = ['shu', 'ai', 'matsu', 'fuji', 'kaki'];
+const GENRE_INK = { 'ラーメン': 'shu', '中華': 'shu', '焼肉': 'shu', 'カフェ': 'kaki', 'スイーツ': 'kaki', 'カレー': 'kaki', '和食': 'ai', '寿司': 'ai', '居酒屋': 'fuji', 'バー': 'fuji', '洋食': 'matsu' };
+const inkOf = p => GENRE_INK[p.genre] || INKS[hash(p.name) % INKS.length];
+
+function sealChars(name) {
+  const s = String(name || '').replace(/[\s　・ー()（）「」『』【】&＆'’.,、。!！?？\-]/g, '');
+  if (!s) return ['？'];
+  if (/^[\x20-\x7e]+$/.test(s)) return [s.slice(0, 2).toUpperCase()];
+  return [...s].slice(0, 4);
+}
+
+function sealSvg(name, ink, size, opt) {
+  opt = opt || {};
+  const chars = sealChars(name), h = hash(name), shape = h % 3, inked = opt.inked !== false;
+  const t = (c, x, y, s) => `<text x="${x}" y="${y}" font-size="${s}" text-anchor="middle" dominant-baseline="central">${esc(c)}</text>`;
+  let text;
+  if (chars.length === 1) text = t(chars[0], 50, 51, chars[0].length > 1 ? 40 : 56);
+  else if (chars.length === 2) text = t(chars[0], 50, 32, 34) + t(chars[1], 50, 69, 34);
+  else if (chars.length === 3) text = t(chars[0], 50, 26, 23) + t(chars[1], 50, 50, 23) + t(chars[2], 50, 74, 23);
+  else text = t(chars[0], 66, 34, 28) + t(chars[1], 66, 67, 28) + t(chars[2], 34, 34, 28) + t(chars[3], 34, 67, 28);
+  const dash = inked ? '' : ' stroke-dasharray="7 6"';
+  const frame = shape === 0 ? `<circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" stroke-width="5"${dash}/>`
+    : shape === 1 ? `<rect x="7" y="7" width="86" height="86" rx="17" fill="none" stroke="currentColor" stroke-width="5"${dash}/>`
+    : `<circle cx="50" cy="50" r="46" fill="none" stroke="currentColor" stroke-width="2.5"${dash}/><circle cx="50" cy="50" r="40" fill="none" stroke="currentColor" stroke-width="1.5"${dash}/>`;
+  return `<svg class="seal${inked ? '' : ' blank'}" viewBox="0 0 100 100" width="${size}" height="${size}" style="color:var(--${inked ? ink : 'sub'});transform:rotate(${h % 13 - 6}deg)" aria-hidden="true"><g fill="currentColor" font-family="'Zen Antique','Hiragino Mincho ProN','Yu Mincho',serif"${opt.fx ? ' filter="url(#inkfx)"' : ''}>${frame}${text}</g></svg>`;
+}
+const sealOf = (p, size, opt) => sealSvg(p.name, inkOf(p), size, Object.assign({ inked: p.status !== 'want' }, opt));
+
+/* ========== 称号 ========== */
+const LEVELS = [[0, 'はじめの一歩'], [1, '食べ歩き見習い'], [5, 'ご近所グルメ'], [10, '街の食通'], [20, '常連メーカー'], [35, '美食ハンター'], [50, '食の探検家'], [75, 'グルメの達人'], [100, '伝説の食通'], [150, '食の仙人']];
+function levelOf(n) {
+  let i = 0;
+  while (i + 1 < LEVELS.length && n >= LEVELS[i + 1][0]) i++;
+  const next = LEVELS[i + 1];
+  return { lv: i + 1, title: LEVELS[i][1], from: LEVELS[i][0], next: next ? next[0] : null };
+}
+const rankOf = n => n >= 20 ? '主' : n >= 10 ? '顔なじみ' : n >= 5 ? '常連' : n >= 3 ? 'おなじみ' : n === 2 ? 'リピーター' : n === 1 ? '初来店' : '';
+const MILESTONES = [3, 5, 10, 20, 30, 50, 100];
+
+/* ========== バックエンド（Apps Script / 外部API / ローカル） ========== */
 const HAS_GAS = typeof google !== 'undefined' && google.script && google.script.run;
 const gas = (fn, ...args) => new Promise((resolve, reject) =>
   google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)[fn](...args));
@@ -249,7 +441,7 @@ const api = HAS_GAS ? {
   apply: ops => remote('apply', ops),
   resolve: text => remote('resolveLink', text)
 } : {
-  // Apps Script の外で開いたときはこの端末のブラウザだけに保存する（お試し用）
+  // 保存先が未設定のときはこの端末のブラウザだけに保存する（お試し用）
   getAll: async () => store('cache') || { places: [], visits: [], appUrl: location.origin + location.pathname },
   apply: async () => true,
   resolve: async text => {
@@ -266,7 +458,8 @@ const api = HAS_GAS ? {
 let S = { places: [], visits: [], appUrl: '' };
 let queue = store('queue') || [];
 let flushing = false;
-const ui = Object.assign({ tab: 'list', filter: 'all', sort: 'recent', q: '', tag: '', pos: null }, store('ui') || {}, { tab: 'list', q: '', pos: null });
+const ui = Object.assign({ filter: 'all', sort: 'recent', tag: '' }, store('ui') || {}, { tab: 'list', q: '', pos: null });
+let listAnim = true, slamId = null;
 
 function normalize(data) {
   data.places.forEach(p => {
@@ -295,7 +488,7 @@ function setSync(state) {
   const el = $('#sync');
   el.className = state === 'error' ? 'error' : '';
   el.textContent = { saving: '保存中…', loading: '読み込み中…', error: '未保存あり・タップで再試行', ok: '' }[state] || '';
-  if (!HAS_GAS && !API_URL && state === 'ok') el.textContent = 'お試しモード（この端末のみ保存）';
+  if (!HAS_GAS && !API_URL && state === 'ok') el.textContent = 'お試しモード';
 }
 
 function commit(ops) {
@@ -342,9 +535,10 @@ async function load() {
 }
 
 /* ========== 操作 ========== */
-function addVisit(placeId, date, memo) {
+function addVisit(placeId, opt) {
+  opt = opt || {};
   const p = placeById(placeId);
-  const v = { id: uid(), placeId, date: date || today(), memo: memo || '', createdAt: now() };
+  const v = { id: uid(), placeId, date: opt.date || today(), memo: opt.memo || '', createdAt: now() };
   S.visits.push(v);
   const ops = [{ op: 'upsert', sheet: 'visits', row: v }];
   const wasWant = p.status === 'want';
@@ -352,12 +546,20 @@ function addVisit(placeId, date, memo) {
     p.status = 'visited'; p.updatedAt = now();
     ops.push({ op: 'upsert', sheet: 'places', row: p });
   }
+  slamId = placeId;
   commit(ops);
-  toast(`「${p.name}」に来店を記録（累計${visitsOf(placeId).length}回）`, () => {
+
+  const n = visitsOf(placeId).length;
+  if (navigator.vibrate) navigator.vibrate(n === 1 || MILESTONES.includes(n) ? [30, 40, 60] : 25);
+  if (n === 1) celebrate(p, wasWant ? '行きたいが叶った！' : '初スタンプ！', p.name);
+  else if (MILESTONES.includes(n)) celebrate(p, `${n}回目！`, `${p.name}の「${rankOf(n)}」になりました`);
+  else confetti(opt.x, opt.y, 30);
+  toast(`「${p.name}」にスタンプ（累計${n}回）`, () => {
     S.visits = S.visits.filter(x => x.id !== v.id);
     const undo = [{ op: 'delete', sheet: 'visits', id: v.id }];
     if (wasWant) { p.status = 'want'; undo.push({ op: 'upsert', sheet: 'places', row: p }); }
     commit(undo);
+    if ($('#detailDlg').open && detailId === placeId) openDetail(placeId);
   });
 }
 
@@ -389,8 +591,7 @@ function findDuplicate(info) {
 
 function mapsLink(p) {
   if (p.mapsUrl) return p.mapsUrl;
-  const q = p.lat != null && !p.name ? p.lat + ',' + p.lng : p.name + (p.address ? ' ' + p.address : '');
-  return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
+  return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(p.name + (p.address ? ' ' + p.address : ''));
 }
 
 function locate() {
@@ -401,9 +602,91 @@ function locate() {
       reject, { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
   });
 }
+async function ensurePosition() {
+  try { await locate(); return true; } catch (e) { toast('現在地を取得できませんでした（位置情報の許可を確認してください）'); return false; }
+}
+
+/* ========== 演出 ========== */
+// dialog は最前面レイヤーに描かれるので、シートが開いている間は演出やトーストもその中へ移す
+const layer = () => document.querySelector('dialog[open]') || document.body;
+const fx = { parts: [], running: false };
+function confetti(x, y, n) {
+  if (reduced) return;
+  const c = $('#fx'), dpr = window.devicePixelRatio || 1;
+  layer().appendChild(c);
+  c.width = innerWidth * dpr; c.height = innerHeight * dpr;
+  const css = getComputedStyle(document.documentElement);
+  const cols = INKS.map(k => css.getPropertyValue('--' + k).trim());
+  x = x == null ? innerWidth / 2 : x; y = y == null ? innerHeight / 2 : y;
+  for (let i = 0; i < (n || 40); i++) {
+    const a = Math.random() * Math.PI * 2, sp = 4 + Math.random() * 9;
+    fx.parts.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 5, r: 3 + Math.random() * 5, rot: Math.random() * 6, vr: (Math.random() - .5) * .5, col: cols[i % cols.length], life: 1, round: i % 3 === 0 });
+  }
+  if (fx.running) return;
+  fx.running = true;
+  const ctx = c.getContext('2d');
+  (function tick() {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, innerWidth, innerHeight);
+    fx.parts = fx.parts.filter(p => p.life > 0);
+    fx.parts.forEach(p => {
+      p.vy += .35; p.vx *= .985; p.x += p.vx; p.y += p.vy; p.rot += p.vr; p.life -= .016;
+      ctx.save(); ctx.globalAlpha = Math.min(1, p.life * 2); ctx.fillStyle = p.col;
+      ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+      if (p.round) { ctx.beginPath(); ctx.arc(0, 0, p.r * .7, 0, 7); ctx.fill(); } else ctx.fillRect(-p.r, -p.r * .45, p.r * 2, p.r * .9);
+      ctx.restore();
+    });
+    if (fx.parts.length) requestAnimationFrame(tick); else fx.running = false;
+  })();
+}
+
+function celebrate(p, title, sub) {
+  const old = $('#cele');
+  if (old) old.remove();
+  const el = document.createElement('div');
+  el.id = 'cele';
+  el.innerHTML = `<div class="cele-in"><span class="seal-wrap">${sealSvg(p.name, inkOf(p), 190, { fx: true })}</span>
+    <div class="cele-title">${esc(title)}</div><div class="cele-sub">${esc(sub)}</div></div>`;
+  layer().appendChild(el);
+  setTimeout(() => confetti(innerWidth / 2, innerHeight * .42, 90), reduced ? 0 : 260);
+  const close = () => { el.classList.add('out'); setTimeout(() => el.remove(), 300); };
+  el.onclick = close;
+  setTimeout(close, 2200);
+}
+
+let toastTimer, toastUndo;
+function toast(msg, undo) {
+  $('#toastMsg').textContent = msg;
+  toastUndo = undo;
+  $('#toastUndo').hidden = !undo;
+  const el = $('#toast');
+  layer().appendChild(el);
+  el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 6000);
+}
+
+const shown = {};
+function countTo(el, to) {
+  const from = shown[el.id] == null ? 0 : shown[el.id];
+  shown[el.id] = to;
+  if (reduced || from === to) { el.textContent = to; return; }
+  const t0 = performance.now(), dur = 600;
+  (function step(t) {
+    const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+    el.textContent = Math.round(from + (to - from) * e);
+    if (k < 1 && shown[el.id] === to) requestAnimationFrame(step);
+  })(t0);
+}
+
+function closeSheet(d) {
+  if (!d.open) return;
+  d.classList.add('closing');
+  setTimeout(() => { d.classList.remove('closing'); d.close(); }, reduced ? 0 : 190);
+}
 
 /* ========== 描画 ========== */
-const stars = n => n ? `<span class="stars">${'★'.repeat(n)}${'☆'.repeat(5 - n)}</span>` : '';
+const stars = n => n ? '★' + n : '';
 const tagsOf = p => String(p.tags || '').split(/[,、\s]+/).filter(Boolean);
 
 function render() {
@@ -414,20 +697,28 @@ function render() {
 
 function renderList() {
   const idx = visitIndex();
+  const month = today().slice(0, 7);
+  countTo($('#heroNum'), S.visits.filter(v => v.date.startsWith(month)).length);
+  const lv = levelOf(S.visits.length);
+  $('#heroLevel').textContent = `Lv.${lv.lv} ${lv.title}`;
+  $('#heroMeter').style.width = (lv.next ? (S.visits.length - lv.from) / (lv.next - lv.from) * 100 : 100) + '%';
+  $('#heroNext').textContent = lv.next ? `あと${lv.next - S.visits.length}回で Lv.${lv.lv + 1}` : '最高レベルに到達';
+
   const counts = { all: S.places.length, visited: 0, want: 0 };
   S.places.forEach(p => counts[p.status]++);
-  $('#filters').innerHTML = [['all', 'すべて'], ['visited', '行った'], ['want', '行きたい']]
-    .map(([k, l]) => `<button class="chip ${ui.filter === k ? 'on' : ''}" data-filter="${k}">${l} ${counts[k]}</button>`).join('');
+  const segs = [['all', 'すべて'], ['visited', '行った'], ['want', '行きたい']];
+  $('#seg').style.setProperty('--i', segs.findIndex(s => s[0] === ui.filter));
+  $('#seg').innerHTML = segs.map(([k, l]) => `<button class="${ui.filter === k ? 'on' : ''}" data-filter="${k}">${l}<span>${counts[k]}</span></button>`).join('');
 
   const labels = new Set();
   S.places.forEach(p => { if (p.genre) labels.add(p.genre); tagsOf(p).forEach(t => labels.add(t)); });
   if (ui.tag && !labels.has(ui.tag)) ui.tag = '';
-  $('#tag').innerHTML = '<option value="">ジャンル・タグ</option>' +
-    [...labels].sort().map(t => `<option ${t === ui.tag ? 'selected' : ''}>${esc(t)}</option>`).join('');
+  $('#tags').hidden = !labels.size;
+  $('#tags').innerHTML = [...labels].sort().map(t => `<button class="chip ${t === ui.tag ? 'on' : ''}" data-tag="${esc(t)}">${esc(t)}</button>`).join('');
   $('#sort').value = ui.sort;
 
   const q = ui.q.trim().toLowerCase();
-  let items = S.places.filter(p =>
+  const items = S.places.filter(p =>
     (ui.filter === 'all' || p.status === ui.filter) &&
     (!ui.tag || p.genre === ui.tag || tagsOf(p).includes(ui.tag)) &&
     (!q || [p.name, p.genre, p.tags, p.memo, p.address].join(' ').toLowerCase().includes(q)));
@@ -445,21 +736,31 @@ function renderList() {
   };
   items.sort(sorters[ui.sort] || sorters.recent);
 
-  $('#list').innerHTML = items.length ? items.map(p => {
-    const sub = [esc(p.genre), stars(p.rating), isFinite(dist(p)) ? fmtDist(dist(p)) : ''].filter(Boolean).join(' ・ ');
-    const hist = cnt(p) ? `累計 <b>${cnt(p)}</b> 回 ・ 最終 ${esc(last(p))}` : 'まだ行っていません';
-    return `<article class="card" data-id="${esc(p.id)}">
-      <div class="main" data-act="detail">
-        <div class="name">${esc(p.name)}${p.status === 'want' ? '<span class="badge want">行きたい</span>' : ''}</div>
-        ${sub ? `<div class="meta">${sub}</div>` : ''}
-        <div class="meta">${hist}</div>
-      </div>
-      <div class="actions">
-        <button class="btn primary small" data-act="visit">＋行った</button>
-        <a class="btn small" href="${esc(mapsLink(p))}" target="_blank" rel="noopener">地図</a>
-      </div>
+  const list = $('#list');
+  list.classList.toggle('enter', listAnim);
+  listAnim = false;
+  list.innerHTML = items.length ? items.map((p, n) => {
+    const c = cnt(p), ink = inkOf(p), onCard = c ? (c - 1) % 10 + 1 : 0;
+    const meta = [esc(p.genre), stars(p.rating), isFinite(dist(p)) ? fmtDist(dist(p)) : ''].filter(Boolean).join(' · ');
+    return `<article class="shop${slamId === p.id ? ' thud' : ''}" data-id="${esc(p.id)}" style="--n:${n};color:var(--${ink})">
+      <button class="shop-main" data-act="detail">
+        <span class="seal-wrap${slamId === p.id ? ' slam' : ''}">${sealOf(p, 58)}</span>
+        <span class="shop-text" style="color:var(--ink)">
+          <span class="shop-name">${esc(p.name)}</span>
+          ${meta ? `<span class="shop-meta">${meta}</span>` : ''}
+          ${c ? `<span class="shop-count"><b>${c}</b>回<i class="rank" style="font-style:normal">${rankOf(c)}</i><span>最終 ${shortDate(last(p))}</span></span>
+            <span class="dots" style="color:var(--${ink})">${Array.from({ length: 10 }, (_, i) => `<i class="${i < onCard ? 'f' : ''}"></i>`).join('')}</span>`
+          : '<span class="shop-count">行きたいお店・まだ押していません</span>'}
+        </span>
+      </button>
+      <button class="press" data-act="visit" aria-label="${esc(p.name)}にスタンプを押す"><span>押す</span></button>
     </article>`;
-  }).join('') : `<div class="empty">${S.places.length ? '条件に合うお店がありません' : 'まだお店がありません。<br>右上の「＋ 登録」から、Googleマップのリンクを貼って追加できます。'}</div>`;
+  }).join('') : S.places.length
+    ? '<div class="empty">条件に合うお店がありません</div>'
+    : `<div class="empty">${sealSvg('一軒目', 'sub', 96, { inked: false })}<b>最初の1軒を登録しよう</b>
+        <span>Googleマップの共有リンクを貼るだけで、<br>お店の判子ができあがります。</span>
+        <button class="btn solid big" data-act="add">お店を登録する</button></div>`;
+  slamId = null;
 }
 
 /* ---------- マップ ---------- */
@@ -471,145 +772,221 @@ function renderMap() {
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
     markers = L.layerGroup().addTo(map);
     map.on('popupopen', e => {
-      const el = e.popup.getElement();
-      el.querySelectorAll('[data-pop]').forEach(b => b.onclick = () => {
-        if (b.dataset.pop === 'visit') { addVisit(b.dataset.id); } else { map.closePopup(); openDetail(b.dataset.id); }
+      e.popup.getElement().querySelectorAll('[data-pop]').forEach(b => b.onclick = ev => {
+        map.closePopup();
+        if (b.dataset.pop === 'visit') addVisit(b.dataset.id, { x: ev.clientX, y: ev.clientY }); else openDetail(b.dataset.id);
       });
     });
   }
   setTimeout(() => map.invalidateSize(), 0);
   markers.clearLayers();
   const idx = visitIndex();
-  const css = getComputedStyle(document.documentElement);
   const pts = [];
   S.places.filter(p => p.lat != null && p.lng != null).forEach(p => {
-    const color = css.getPropertyValue(p.status === 'want' ? '--want' : '--accent').trim();
     const c = (idx[p.id] || {}).count || 0;
-    L.circleMarker([p.lat, p.lng], { radius: 8 + Math.min(c, 8), color: '#fff', weight: 2, fillColor: color, fillOpacity: .9 })
-      .bindPopup(`<b>${esc(p.name)}</b><br>${c ? '累計 ' + c + ' 回' : '行きたい'}<br>
-        <button class="btn primary small" data-pop="visit" data-id="${esc(p.id)}">＋行った</button>
-        <button class="btn small" data-pop="detail" data-id="${esc(p.id)}">詳細</button>`)
+    const icon = L.divIcon({ className: '', iconSize: [44, 44], iconAnchor: [22, 22], html: `<div class="pin">${sealOf(p, 34)}${c ? `<b>${c}</b>` : ''}</div>` });
+    L.marker([p.lat, p.lng], { icon })
+      .bindPopup(`<b>${esc(p.name)}</b><span>${c ? `累計 ${c} 回 · ${rankOf(c)}` : '行きたいお店'}</span>
+        <span style="display:flex;gap:6px"><button class="btn stampbtn small" data-pop="visit" data-id="${esc(p.id)}">スタンプを押す</button>
+        <button class="btn small" data-pop="detail" data-id="${esc(p.id)}">ひらく</button></span>`)
       .addTo(markers);
     pts.push([p.lat, p.lng]);
   });
-  if (pts.length && !map._fitted) { map.fitBounds(pts, { padding: [30, 30], maxZoom: 16 }); map._fitted = true; }
+  if (pts.length && !map._fitted) { map.fitBounds(pts, { padding: [40, 40], maxZoom: 16 }); map._fitted = true; }
 }
 
-/* ---------- 統計 ---------- */
-function bars(rows) {
-  const max = Math.max(1, ...rows.map(r => r[1]));
-  return rows.map(([t, n]) => `<div class="bar"><span class="t">${esc(t)}</span><span><div class="b" style="width:${n / max * 100}%"></div></span><span class="n">${n}</span></div>`).join('');
+/* ---------- きろく ---------- */
+const mondayOf = s => { const d = new Date(s + 'T00:00:00'); d.setDate(d.getDate() - (d.getDay() + 6) % 7); return ymd(d); };
+
+function badgeList(idx) {
+  const counts = Object.values(idx).map(e => e.count);
+  const maxCount = Math.max(0, ...counts);
+  const visited = S.places.filter(p => p.status === 'visited').length;
+  const genres = new Set(S.places.filter(p => idx[p.id] && p.genre).map(p => p.genre));
+  const weeks = {};
+  S.visits.forEach(v => { const w = mondayOf(v.date); weeks[w] = (weeks[w] || 0) + 1; });
+  const keys = Object.keys(weeks).sort();
+  let streak = 0, best = 0, prev = null;
+  keys.forEach(k => {
+    const t = new Date(k + 'T00:00:00').getTime();
+    streak = prev != null && Math.round((t - prev) / 864e5) === 7 ? streak + 1 : 1;
+    best = Math.max(best, streak); prev = t;
+  });
+  const fulfilled = S.places.some(p => { const vs = visitsOf(p.id); return vs.length && vs[vs.length - 1].date > String(p.createdAt).slice(0, 10); });
+  return [
+    ['初', '初スタンプ', '1回押す', S.visits.length >= 1],
+    ['拓', '開拓者', '10軒に行く', visited >= 10],
+    ['常', '常連', '同じ店に5回', maxCount >= 5],
+    ['主', '店の主', '同じ店に10回', maxCount >= 10],
+    ['彩', '食べわけ', '3ジャンル制覇', genres.size >= 3],
+    ['週', '食べ歩き週間', '1週間に3回', Object.values(weeks).some(n => n >= 3)],
+    ['続', '4週連続', '4週つづけて押す', best >= 4],
+    ['叶', '有言実行', '行きたい店に行く', fulfilled]
+  ];
 }
 
 function renderStats() {
   const idx = visitIndex();
-  const month = today().slice(0, 7);
   const visited = S.places.filter(p => p.status === 'visited').length;
-  const tiles = [
-    ['行った店', visited], ['行きたい店', S.places.length - visited],
-    ['累計訪問回数', S.visits.length], ['今月の訪問', S.visits.filter(v => v.date.startsWith(month)).length]
-  ];
-  const ranking = S.places.map(p => [p.name, (idx[p.id] || {}).count || 0]).filter(r => r[1]).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  const lv = levelOf(S.visits.length);
+  const perDay = {};
+  S.visits.forEach(v => { perDay[v.date] = (perDay[v.date] || 0) + 1; });
+
+  // 直近20週のカレンダー（月曜始まり・縦が曜日）
+  const start = new Date(mondayOf(today()) + 'T00:00:00');
+  start.setDate(start.getDate() - 7 * 19);
+  let heat = '';
+  for (let i = 0; i < 140; i++) {
+    const d = new Date(start); d.setDate(d.getDate() + i);
+    const key = ymd(d), n = perDay[key] || 0;
+    heat += key > today() ? '<i class="future"></i>' : `<i class="l${Math.min(n, 3)}" data-read="${shortDate(key)}　${n}回"></i>`;
+  }
+
   const months = [];
   const d = new Date(); d.setDate(1);
   for (let i = 0; i < 12; i++) { months.unshift(ymd(d).slice(0, 7)); d.setMonth(d.getMonth() - 1); }
-  const monthly = months.map(m => [m, S.visits.filter(v => v.date.startsWith(m)).length]);
+  const monthly = months.map(m => S.visits.filter(v => v.date.startsWith(m)).length);
+  const mMax = Math.max(1, ...monthly);
+  const cols = monthly.map((n, i) => `<div class="col" data-read="${Number(months[i].slice(5))}月　${n}回">
+      ${n && (n === mMax || i === 11) ? `<span>${n}</span>` : ''}<i style="height:${n / mMax * 82}%;animation-delay:${i * 30}ms"></i></div>`).join('');
+
+  const ranking = S.places.map(p => [p, (idx[p.id] || {}).count || 0]).filter(r => r[1]).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const rMax = ranking.length ? ranking[0][1] : 1;
   const genre = {};
   S.visits.forEach(v => { const p = placeById(v.placeId); if (p) { const g = p.genre || '未設定'; genre[g] = (genre[g] || 0) + 1; } });
-  const genres = Object.entries(genre).sort((a, b) => b[1] - a[1]);
+  const genres = Object.entries(genre).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  const gMax = genres.length ? genres[0][1] : 1;
+  const badges = badgeList(idx);
   const appUrl = S.appUrl || '';
 
   $('#stats').innerHTML = `
-    <div class="tiles">${tiles.map(([l, v]) => `<div class="tile"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('')}</div>
-    <div class="panel"><h2>行きたい店ルーレット</h2>
-      <div class="row"><button class="btn" id="roulette">今日どこ行く？</button><span id="rouletteOut" class="note">行きたい店からランダムに1軒選びます</span></div></div>
-    <div class="panel"><h2>訪問回数ランキング</h2>${ranking.length ? bars(ranking) : '<div class="note">まだ訪問記録がありません</div>'}</div>
-    <div class="panel"><h2>月別の訪問回数（直近12か月）</h2>${bars(monthly)}</div>
-    ${genres.length ? `<div class="panel"><h2>ジャンル別の訪問回数</h2>${bars(genres)}</div>` : ''}
-    ${HAS_GAS ? '' : API_URL ? `<div class="panel"><h2>ほかの端末で使う</h2>
-      <div class="note">使いたい端末で下の設定用リンクを1回開くと、同じデータにつながります。データを読み書きできる鍵なので、他人には見せないでください。</div>
-      <input readonly value="${esc(appUrl + '#api=' + encodeURIComponent(API_URL))}" onclick="this.select()">
-    </div>` : `<div class="panel"><h2>データ保存先の設定</h2>
-      <div class="note">いまはお試しモードです（この端末のブラウザにだけ保存）。Apps Script のウェブアプリURLを入れると、スプレッドシートに保存して端末間で同期します。</div>
-      <div class="row" style="flex-wrap:nowrap;margin-top:6px"><input id="apiInput" placeholder="${API_PREFIX}…/exec" style="flex:1;min-width:0;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card)">
-      <button class="btn small" id="apiSave">保存</button></div>
-    </div>`}
-    <div class="panel"><h2>Googleマップからワンタップ登録する設定</h2>
-      <div class="note">このアプリのURL</div>
-      <input readonly value="${esc(appUrl)}" onclick="this.select()">
-      <div class="note" style="margin-top:8px"><b>iPhone</b>（ショートカットアプリで1回だけ作成）</div>
-      <ol>
-        <li>「ショートカット」アプリで新規作成し、名前を「お店ログに追加」にする</li>
-        <li>ⓘ →「共有シートに表示」をオン（受け取る種類は URL とテキスト）</li>
-        <li>アクション「URLエンコード」を追加（入力は「ショートカットの入力」）</li>
-        <li>アクション「URLを開く」を追加し、URL欄に下の文字列を貼って、末尾に「URLエンコード済みのテキスト」変数を付ける</li>
-      </ol>
-      <input readonly value="${esc(appUrl)}?add=" onclick="this.select()">
-      <div class="note">以後は Googleマップでお店を開き「共有 → お店ログに追加」で登録画面が開きます。</div>
-      <div class="note" style="margin-top:8px"><b>パソコン</b>（ブックマークレット）：下の文字列をURLにしたブックマークを作り、Googleマップでお店を開いた状態でクリック</div>
-      <input readonly value="${esc(`javascript:window.open('${appUrl}?add='+encodeURIComponent(location.href))`)}" onclick="this.select()">
-    </div>`;
+    <div class="block">
+      <div class="hero"><div class="hero-num">${S.visits.length}<small>回</small></div>
+        <div class="hero-side"><span class="hero-label">これまでに押したスタンプ</span><span class="hero-level">Lv.${lv.lv} ${lv.title}</span>
+        <div class="meter"><i style="width:${lv.next ? (S.visits.length - lv.from) / (lv.next - lv.from) * 100 : 100}%"></i></div>
+        <span class="hero-label">${lv.next ? `あと${lv.next - S.visits.length}回で Lv.${lv.lv + 1}` : '最高レベルに到達'}</span></div></div>
+      <div class="tiles">
+        <div class="tile"><div class="v">${visited}</div><div class="l">行った店</div></div>
+        <div class="tile"><div class="v">${S.places.length - visited}</div><div class="l">行きたい店</div></div>
+        <div class="tile"><div class="v">${badges.filter(b => b[3]).length}<small style="font-size:13px">/${badges.length}</small></div><div class="l">バッジ</div></div>
+      </div>
+    </div>
+    <div class="block"><h2>今日どこ行く？</h2>
+      <div class="slot" id="slot"><span id="slotSeal">${sealSvg('？', 'sub', 52, { inked: false })}</span><span class="who" id="slotWho">行きたいお店から1軒えらびます</span>
+        <button class="btn solid" id="roulette">まわす</button></div></div>
+    <div class="block"><h2>スタンプカレンダー（直近20週）</h2><div class="heat" id="heat">${heat}</div><div class="readout note" id="heatRead">マスをタップするとその日の回数が出ます</div></div>
+    <div class="block"><h2>月ごとのスタンプ数</h2><div class="cols" id="cols">${cols}</div>
+      <div class="colx">${months.map(m => `<span>${Number(m.slice(5))}</span>`).join('')}</div><div class="readout note" id="colRead">棒をタップするとその月の回数が出ます</div></div>
+    <div class="block"><h2>よく行くお店</h2>${ranking.length ? ranking.map(([p, n], i) => `<button class="rankrow" data-open="${esc(p.id)}">
+        <span class="no">${i + 1}</span>${sealOf(p, 40)}<span class="nm">${esc(p.name)}<span class="hbar" style="width:${n / rMax * 100}%;animation-delay:${i * 60}ms"></span></span><span class="n">${n}回</span></button>`).join('')
+      : '<div class="note">スタンプを押すとここにランキングが出ます</div>'}</div>
+    ${genres.length ? `<div class="block"><h2>ジャンル別のスタンプ数</h2>${genres.map(([g, n], i) => `<div class="grow"><span>${esc(g)}</span><span><span class="hbar" style="display:block;width:${n / gMax * 100}%;animation-delay:${i * 50}ms"></span></span><span class="n">${n}</span></div>`).join('')}</div>` : ''}
+    <div class="block"><h2>バッジ</h2><div class="badges">${badges.map(([ch, name, cond, got]) => `<div class="badge${got ? '' : ' locked'}">
+        ${sealSvg(got ? ch : '？', 'shu', 56, { inked: got })}<b>${name}</b><span>${cond}</span></div>`).join('')}</div></div>
+    <details class="more"><summary>連携と設定</summary><div class="inner">
+      ${HAS_GAS ? '' : API_URL ? `<div class="block"><h2>ほかの端末で使う</h2>
+        <div class="note">使いたい端末で下の設定用リンクを1回開くと、同じデータにつながります。データを読み書きできる鍵なので、他人には見せないでください。</div>
+        <input class="copy" readonly value="${esc(appUrl + '#api=' + encodeURIComponent(API_URL))}" onclick="this.select()"></div>`
+      : `<div class="block"><h2>データ保存先の設定</h2>
+        <div class="note">いまはお試しモードです（この端末のブラウザにだけ保存）。Apps Script のウェブアプリURLを入れると、スプレッドシートに保存して端末間で同期します。</div>
+        <div class="joined"><input class="inline-input" id="apiInput" placeholder="${API_PREFIX}…/exec"><button class="btn" id="apiSave">保存</button></div></div>`}
+      <div class="block"><h2>Googleマップからワンタップ登録</h2>
+        <div class="note"><b>iPhone</b>（ショートカットアプリで1回だけ作成）</div>
+        <ol>
+          <li>「ショートカット」アプリで新規作成し、名前を「お店ログに追加」にする</li>
+          <li>ⓘ →「共有シートに表示」をオン（受け取る種類は URL とテキスト）</li>
+          <li>アクション「URLエンコード」を追加（入力は「ショートカットの入力」）</li>
+          <li>アクション「URLを開く」を追加し、URL欄に下の文字列を貼って、末尾に「URLエンコード済みのテキスト」変数を付ける</li>
+        </ol>
+        <input class="copy" readonly value="${esc(appUrl)}?add=" onclick="this.select()">
+        <div class="note">以後は Googleマップでお店を開き「共有 → お店ログに追加」で登録画面が開きます。</div>
+        <div class="note"><b>パソコン</b>（ブックマークレット）：下の文字列をURLにしたブックマークを作り、Googleマップでお店を開いた状態でクリック</div>
+        <input class="copy" readonly value="${esc(`javascript:window.open('${appUrl}?add='+encodeURIComponent(location.href))`)}" onclick="this.select()"></div>
+    </div></details>`;
 }
 
-/* ---------- 登録ダイアログ ---------- */
+function spinRoulette() {
+  const wants = S.places.filter(p => p.status === 'want');
+  const who = $('#slotWho'), sealEl = $('#slotSeal'), slot = $('#slot');
+  if (!wants.length) { who.textContent = '行きたいお店がまだありません。まず登録しよう'; return; }
+  const pick = wants[Math.floor(Math.random() * wants.length)];
+  const show = p => { who.textContent = p.name; sealEl.innerHTML = sealSvg(p.name, inkOf(p), 52, {}); };
+  const done = () => {
+    slot.classList.remove('spin');
+    show(pick);
+    sealEl.className = 'seal-wrap slam';
+    who.innerHTML = `${esc(pick.name)}<br><button class="btn small" data-open="${esc(pick.id)}">ひらく</button>`;
+    const r = slot.getBoundingClientRect();
+    confetti(r.left + 40, r.top + 30, 36);
+  };
+  if (reduced || wants.length === 1) return done();
+  slot.classList.add('spin'); sealEl.className = '';
+  let i = 0, delay = 60;
+  (function next() {
+    show(wants[i++ % wants.length]);
+    delay *= 1.13;
+    if (delay < 380) setTimeout(next, delay); else done();
+  })();
+}
+
+/* ---------- 登録シート ---------- */
 let addInfo = {};
 function openAdd(prefill) {
   addInfo = {};
   $('#addBody').innerHTML = `
+    <div class="grab"></div>
     <h2>お店を登録</h2>
-    <label class="field"><span>Googleマップの共有リンク（貼り付けると店名を自動入力）</span>
-      <div class="row" style="flex-wrap:nowrap"><input id="addLink" placeholder="https://maps.app.goo.gl/..." style="flex:1;min-width:0">
-      <button class="btn" id="addResolve">読み込む</button></div></label>
-    <label class="field"><span>店名</span><input id="addName" placeholder="店名を入力"></label>
-    <div id="addHit"></div>
-    <div class="grid2">
-      <button class="btn primary" data-add="visited">行った！</button>
-      <button class="btn want" data-add="want">行きたい</button>
+    <div class="preview"><span id="addSeal" class="seal-wrap">${sealSvg('？', 'sub', 76, { inked: false })}</span>
+      <div><div class="pv-name" id="addPvName">店名を入れると判子ができます</div><div class="note" id="addHit"></div></div></div>
+    <label class="field"><span>Googleマップの共有リンク（貼ると店名が入ります）</span>
+      <span class="joined"><input id="addLink" placeholder="https://maps.app.goo.gl/…" inputmode="url" autocomplete="off">
+      <button class="btn" id="addPaste" type="button">貼り付け</button></span></label>
+    <label class="field"><span>店名</span><input id="addName" placeholder="店名を入力" autocomplete="off"></label>
+    <div class="two">
+      <button class="btn stampbtn big" data-add="visited">行った！</button>
+      <button class="btn solid big" data-add="want">行きたい</button>
     </div>
-    <div class="row"><label class="note"><input type="checkbox" id="addHere"> 現在地をこのお店の場所として記録</label>
-      <span style="flex:1"></span><button class="btn small" data-add="cancel">閉じる</button></div>`;
+    <label class="check"><input type="checkbox" id="addHere"> いまいる場所をこのお店の位置として記録</label>`;
   $('#addDlg').showModal();
   if (prefill) { $('#addLink').value = prefill; resolveAdd(); }
 }
 
-function showAddHit() {
+function updateAddPreview(pop) {
   const name = $('#addName').value.trim();
   const dup = findDuplicate(Object.assign({}, addInfo, { name }));
-  const el = $('#addHit');
-  if (dup) {
-    const n = visitsOf(dup.id).length;
-    el.innerHTML = `<div class="hit">登録済みのお店です（累計 ${n} 回）。「行った！」で来店を1回追加します。</div>`;
-  } else {
-    el.innerHTML = addInfo.address ? `<div class="note">${esc(addInfo.address)}</div>` : '';
-  }
+  const sealEl = $('#addSeal');
+  sealEl.innerHTML = name ? sealSvg(name, inkOf(dup || { name, genre: '' }), 76, { fx: true }) : sealSvg('？', 'sub', 76, { inked: false });
+  if (pop) { sealEl.classList.remove('pop'); void sealEl.offsetWidth; sealEl.classList.add('pop'); }
+  $('#addPvName').textContent = name || '店名を入れると判子ができます';
+  $('#addHit').textContent = dup ? `登録済み（累計 ${visitsOf(dup.id).length} 回）。「行った！」でスタンプを1つ押します`
+    : addInfo.address || '';
   return dup;
 }
 
 async function resolveAdd() {
   const text = $('#addLink').value.trim();
   if (!text) return;
-  const btn = $('#addResolve');
-  btn.disabled = true; btn.textContent = '読み込み中…';
+  $('#addHit').textContent = 'リンクを読み込んでいます…';
   try {
     addInfo = await api.resolve(text) || {};
+    if (!$('#addDlg').open) return;
     if (addInfo.name) $('#addName').value = addInfo.name;
+    updateAddPreview(true);
   } catch (e) {
     addInfo = { mapsUrl: (text.match(/https?:\/\/[^\s]+/) || [''])[0] };
-    $('#addHit').innerHTML = '<div class="note">リンクを読み取れませんでした。店名を入力すればそのまま登録できます。</div>';
+    if ($('#addDlg').open) $('#addHit').textContent = 'リンクを読み取れませんでした。店名を入力すればそのまま登録できます';
   }
-  if (!$('#addDlg').open) return;
-  btn.disabled = false; btn.textContent = '読み込む';
-  showAddHit();
 }
 
-async function submitAdd(status) {
+async function submitAdd(status, ev) {
   const name = $('#addName').value.trim();
-  if (!name) { $('#addName').focus(); return; }
+  if (!name) { $('#addName').focus(); toast('店名を入れてください'); return; }
   const dup = findDuplicate(Object.assign({}, addInfo, { name }));
   const useHere = $('#addHere').checked;
-  $('#addDlg').close();
+  closeSheet($('#addDlg'));
+  listAnim = false;
   if (dup) {
-    if (status === 'visited') addVisit(dup.id); else toast(`「${dup.name}」は登録済みです`);
+    if (status === 'visited') addVisit(dup.id, { x: ev.clientX, y: ev.clientY }); else toast(`「${dup.name}」は登録済みです`);
     return;
   }
   const p = {
@@ -621,171 +998,191 @@ async function submitAdd(status) {
     try { const pos = await locate(); p.lat = pos.lat; p.lng = pos.lng; } catch (e) { /* 位置なしで登録 */ }
   }
   S.places.push(p);
-  if (status === 'visited') {
-    commit([{ op: 'upsert', sheet: 'places', row: p }]);
-    addVisit(p.id);
-  } else {
-    commit([{ op: 'upsert', sheet: 'places', row: p }]);
-    toast(`「${p.name}」を行きたい店に登録しました`);
-  }
+  slamId = p.id;
+  commit([{ op: 'upsert', sheet: 'places', row: p }]);
+  if (status === 'visited') addVisit(p.id);
+  else { confetti(innerWidth / 2, innerHeight / 2, 24); toast(`「${p.name}」を行きたいお店に登録しました`); }
 }
 
-/* ---------- 詳細ダイアログ ---------- */
-let detailId = null, detailRating = 0;
-function openDetail(id) {
+/* ---------- 詳細シート ---------- */
+let detailId = null, deleteArmed = false;
+function openDetail(id, slamLast) {
   const p = placeById(id);
   if (!p) return;
-  detailId = id; detailRating = p.rating;
-  const vs = visitsOf(id);
+  detailId = id; deleteArmed = false;
+  const vs = visitsOf(id), asc = vs.slice().reverse(), n = vs.length, ink = inkOf(p);
+  const cardNo = n ? Math.floor((n - 1) / 10) + 1 : 1;
+  const onCard = asc.slice((cardNo - 1) * 10);
+  const mini = sealSvg(p.name, ink, 48, {});
+  const cells = Array.from({ length: 10 }, (_, i) => {
+    if (i < onCard.length) return `<div class="cell"><span class="seal-wrap${slamLast && i === onCard.length - 1 ? ' slam' : ''}" style="color:var(--${ink})">${mini}</span>${shortDate(onCard[i].date)}</div>`;
+    if (i === onCard.length) return `<div class="cell"><button class="ring" data-d="stamp" style="color:var(--${ink})" aria-label="今日のスタンプを押す">押す</button>今日</div>`;
+    return '<div class="cell"><span class="ring"></span>&nbsp;</div>';
+  }).join('');
+  const genreSet = [...new Set(GENRES.concat(S.places.map(x => x.genre).filter(Boolean)))];
+
   $('#detailBody').innerHTML = `
-    <h2>${esc(p.name)}</h2>
-    <div class="row">
-      <a class="btn small" href="${esc(mapsLink(p))}" target="_blank" rel="noopener">Googleマップで開く</a>
-      <a class="btn small" href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(p.lat != null ? p.lat + ',' + p.lng : p.name)}" target="_blank" rel="noopener">経路</a>
+    <div class="grab"></div>
+    <div class="head"><span class="seal-wrap">${sealOf(p, 84, { fx: true })}</span>
+      <div style="display:grid;gap:6px;min-width:0"><h2>${esc(p.name)}</h2>
+        ${p.address ? `<div class="note">${esc(p.address)}</div>` : ''}
+        <div class="links">
+          <a class="btn small" href="${esc(mapsLink(p))}" target="_blank" rel="noopener">Googleマップ</a>
+          <a class="btn small" href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(p.lat != null ? p.lat + ',' + p.lng : p.name)}" target="_blank" rel="noopener">経路</a>
+        </div></div></div>
+    <div class="stampcard">
+      <div class="top"><b>${n}</b>回${n ? `<span class="rank" style="color:var(--${ink})">${rankOf(n)}</span>` : ''}
+        <span class="note" style="margin-left:auto">スタンプカード ${cardNo}枚目${n && n % 10 === 0 ? '（満了！次の1回で新しいカード）' : ''}</span></div>
+      <div class="slots">${n && n % 10 === 0 ? cells.replace('<div class="cell"><span class="ring"></span>&nbsp;</div>', '') : cells}</div>
+      ${n && n % 10 === 0 ? `<button class="btn stampbtn" data-d="stamp">今日のスタンプを押す</button>` : ''}
+      <details><summary class="note" style="cursor:pointer">日付やメモを付けて記録する</summary>
+        <div style="display:grid;gap:8px;padding-top:8px">
+          <div class="joined" style="grid-template-columns:auto 1fr"><input type="date" class="inline-input" id="vDate" value="${today()}" max="${today()}"><input class="inline-input" id="vMemo" placeholder="食べたもの・ひとこと"></div>
+          <button class="btn solid" data-d="visit">この内容でスタンプを押す</button>
+        </div></details>
     </div>
-    ${p.address ? `<div class="note">${esc(p.address)}</div>` : ''}
-    <div class="panel">
-      <h2>来店履歴　累計 ${vs.length} 回</h2>
-      <div class="row" style="flex-wrap:nowrap;margin-bottom:8px">
-        <input type="date" id="vDate" value="${today()}" style="flex:none;padding:6px;border:1px solid var(--line);border-radius:8px;background:var(--card)">
-        <input id="vMemo" placeholder="ひとことメモ（食べたもの等）" style="flex:1;min-width:0;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card)">
-        <button class="btn primary small" data-d="visit">＋追加</button>
-      </div>
-      <div class="visits">${vs.map(v => `<div class="visit"><span class="d">${esc(v.date)}</span><span class="m">${esc(v.memo)}</span><button data-d="delVisit" data-id="${esc(v.id)}" aria-label="この来店を削除">✕</button></div>`).join('') || '<div class="note">まだ来店記録がありません</div>'}</div>
-    </div>
-    <label class="field"><span>店名</span><input id="dName" value="${esc(p.name)}"></label>
-    <div class="grid2">
-      <label class="field"><span>状態</span><select id="dStatus">
-        <option value="visited" ${p.status === 'visited' ? 'selected' : ''}>行った</option>
-        <option value="want" ${p.status === 'want' ? 'selected' : ''}>行きたい</option></select></label>
-      <label class="field"><span>ジャンル</span><input id="dGenre" list="genreList" value="${esc(p.genre)}">
-        <datalist id="genreList">${[...new Set(GENRES.concat(S.places.map(x => x.genre).filter(Boolean)))].map(g => `<option value="${esc(g)}">`).join('')}</datalist></label>
-    </div>
-    <div class="field"><span>評価</span><div class="rate" id="dRate"></div></div>
+    <div class="field"><span>評価</span><div class="stars" id="dRate">${[1, 2, 3, 4, 5].map(i => `<button type="button" data-rate="${i}" class="${i <= p.rating ? 'on' : ''}" aria-label="星${i}">★</button>`).join('')}</div></div>
+    <div class="field"><span>ジャンル（判子のインクの色が変わります）</span><div class="gchips" id="dGenres">${genreSet.map(g => `<button type="button" class="chip ${g === p.genre ? 'on' : ''}" data-genre="${esc(g)}">${esc(g)}</button>`).join('')}</div></div>
+    <label class="field"><span>メモ（おすすめ、次に頼みたいもの）</span><textarea id="dMemo">${esc(p.memo)}</textarea></label>
     <label class="field"><span>タグ（カンマ区切り　例: デート, 個室, ランチ）</span><input id="dTags" value="${esc(p.tags)}"></label>
-    <label class="field"><span>メモ（おすすめメニュー、次に頼みたいもの等）</span><textarea id="dMemo">${esc(p.memo)}</textarea></label>
-    <div class="row">
-      <button class="btn danger small" data-d="delete">このお店を削除</button>
-      <span style="flex:1"></span>
-      <button class="btn" data-d="close">閉じる</button>
-      <button class="btn primary" data-d="save">保存</button>
-    </div>`;
-  drawRate();
+    ${vs.length ? `<div class="field"><span>これまでの来店</span><div>${vs.map(v => `<div class="visit"><span class="d">${esc(v.date)}</span><span class="m">${esc(v.memo)}</span><button data-d="delVisit" data-id="${esc(v.id)}" aria-label="${esc(v.date)}の来店を削除">✕</button></div>`).join('')}</div></div>` : ''}
+    <details><summary class="note" style="cursor:pointer">店名・状態を変える／削除する</summary>
+      <div style="display:grid;gap:10px;padding-top:10px">
+        <label class="field"><span>店名</span><input id="dName" value="${esc(p.name)}"></label>
+        <label class="field"><span>状態</span><select id="dStatus">
+          <option value="visited" ${p.status === 'visited' ? 'selected' : ''}>行った</option>
+          <option value="want" ${p.status === 'want' ? 'selected' : ''}>行きたい</option></select></label>
+        <button class="btn danger" data-d="delete">このお店を削除</button>
+      </div></details>
+    <button class="btn big" data-d="close">とじる</button>`;
   if (!$('#detailDlg').open) $('#detailDlg').showModal();
 }
 
-function drawRate() {
-  $('#dRate').innerHTML = [1, 2, 3, 4, 5].map(n => `<button type="button" data-rate="${n}" class="${n <= detailRating ? 'on' : ''}" aria-label="星${n}">★</button>`).join('');
-}
-
-function readDetail() {
+/** シートの入力欄を読み取って保存（入力のたびに自動保存） */
+function saveDetail() {
   const p = placeById(detailId);
+  if (!p) return;
   p.name = $('#dName').value.trim() || p.name;
   p.status = $('#dStatus').value;
-  p.genre = $('#dGenre').value.trim();
   p.tags = $('#dTags').value.trim();
   p.memo = $('#dMemo').value;
-  p.rating = detailRating;
-  return p;
-}
-
-/* ---------- トースト ---------- */
-let toastTimer, toastUndo;
-function toast(msg, undo) {
-  $('#toastMsg').textContent = msg;
-  toastUndo = undo;
-  $('#toastUndo').hidden = !undo;
-  $('#toast').classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => $('#toast').classList.remove('show'), 6000);
+  savePlace(p);
 }
 
 /* ========== イベント ========== */
 function saveUi() { store('ui', { filter: ui.filter, sort: ui.sort, tag: ui.tag }); }
 
-async function ensurePosition() {
-  try { await locate(); return true; } catch (e) { toast('現在地を取得できませんでした（位置情報の許可を確認してください）'); return false; }
+function switchTab(tab) {
+  if (tab === ui.tab) return;
+  const go = () => {
+    ui.tab = tab;
+    document.querySelectorAll('nav [data-tab]').forEach(x => x.classList.toggle('on', x.dataset.tab === tab));
+    ['list', 'map', 'stats'].forEach(t => { $('#tab-' + t).hidden = t !== tab; });
+    listAnim = tab === 'list';
+    render();
+    scrollTo(0, 0);
+  };
+  if (document.startViewTransition && !reduced) document.startViewTransition(go); else go();
 }
 
 document.querySelector('nav').addEventListener('click', e => {
   const b = e.target.closest('[data-tab]');
-  if (!b) return;
-  ui.tab = b.dataset.tab;
-  document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x === b));
-  ['list', 'map', 'stats'].forEach(t => { $('#tab-' + t).hidden = t !== ui.tab; });
-  render();
+  if (b) switchTab(b.dataset.tab);
 });
-
-$('#addBtn').onclick = () => openAdd();
+$('#fab').onclick = () => openAdd();
 $('#sync').onclick = () => { if (queue.length) flush(); else load(); };
 $('#q').oninput = e => { ui.q = e.target.value; renderList(); };
-$('#tag').onchange = e => { ui.tag = e.target.value; saveUi(); renderList(); };
 $('#sort').onchange = async e => {
   ui.sort = e.target.value; saveUi();
   if (ui.sort === 'near' && !ui.pos) await ensurePosition();
-  renderList();
+  listAnim = true; renderList();
 };
-$('#filters').onclick = e => {
+$('#seg').onclick = e => {
   const b = e.target.closest('[data-filter]');
-  if (b) { ui.filter = b.dataset.filter; saveUi(); renderList(); }
+  if (b) { ui.filter = b.dataset.filter; saveUi(); listAnim = true; renderList(); }
+};
+$('#tags').onclick = e => {
+  const b = e.target.closest('[data-tag]');
+  if (b) { ui.tag = ui.tag === b.dataset.tag ? '' : b.dataset.tag; saveUi(); listAnim = true; renderList(); }
 };
 $('#list').onclick = e => {
-  const card = e.target.closest('.card');
   const act = e.target.closest('[data-act]');
-  if (!card || !act) return;
-  if (act.dataset.act === 'visit') addVisit(card.dataset.id);
-  else openDetail(card.dataset.id);
+  if (!act) return;
+  if (act.dataset.act === 'add') return openAdd();
+  const id = act.closest('.shop').dataset.id;
+  if (act.dataset.act === 'visit') addVisit(id, { x: e.clientX, y: e.clientY }); else openDetail(id);
 };
 $('#locBtn').onclick = async () => {
   if (await ensurePosition() && map) {
     map.setView([ui.pos.lat, ui.pos.lng], 16);
-    L.circleMarker([ui.pos.lat, ui.pos.lng], { radius: 6, color: '#fff', weight: 2, fillColor: '#2f9e44', fillOpacity: 1 }).addTo(markers).bindPopup('現在地');
+    L.circleMarker([ui.pos.lat, ui.pos.lng], { radius: 7, color: '#fff', weight: 3, fillColor: '#1a73e8', fillOpacity: 1 }).addTo(markers).bindPopup('現在地');
   }
 };
 $('#stats').onclick = e => {
+  const open = e.target.closest('[data-open]');
+  if (open) return openDetail(open.dataset.open);
+  if (e.target.id === 'roulette') return spinRoulette();
   if (e.target.id === 'apiSave') {
     if ($('#apiInput').value.trim() && setApiUrl($('#apiInput').value)) location.reload();
     else toast('Apps Script のウェブアプリURL（' + API_PREFIX + '…/exec）を入れてください');
     return;
   }
-  if (e.target.id !== 'roulette') return;
-  const wants = S.places.filter(p => p.status === 'want');
-  const out = $('#rouletteOut');
-  if (!wants.length) { out.textContent = '行きたい店がまだありません'; return; }
-  const p = wants[Math.floor(Math.random() * wants.length)];
-  out.innerHTML = `<a href="#" data-id="${esc(p.id)}" style="color:var(--accent);font-weight:700">${esc(p.name)}</a>${p.genre ? '（' + esc(p.genre) + '）' : ''}`;
-  out.firstChild.onclick = ev => { ev.preventDefault(); openDetail(p.id); };
+  const read = e.target.closest('[data-read]');
+  if (read) {
+    const box = read.closest('#heat') ? '#heatRead' : '#colRead';
+    read.parentElement.querySelectorAll('.sel').forEach(x => x.classList.remove('sel'));
+    read.classList.add('sel');
+    $(box).textContent = read.dataset.read;
+  }
 };
 
-$('#addBody').addEventListener('click', e => {
-  if (e.target.id === 'addResolve') return resolveAdd();
+$('#addBody').addEventListener('click', async e => {
+  if (e.target.id === 'addPaste') {
+    try { $('#addLink').value = await navigator.clipboard.readText(); resolveAdd(); }
+    catch (err) { $('#addLink').focus(); toast('入力欄を長押しして「ペースト」してください'); }
+    return;
+  }
   const b = e.target.closest('[data-add]');
-  if (!b) return;
-  if (b.dataset.add === 'cancel') $('#addDlg').close(); else submitAdd(b.dataset.add);
+  if (b) submitAdd(b.dataset.add, e);
 });
-$('#addBody').addEventListener('input', e => { if (e.target.id === 'addName') showAddHit(); });
+$('#addBody').addEventListener('input', e => { if (e.target.id === 'addName') updateAddPreview(false); });
 $('#addBody').addEventListener('paste', e => { if (e.target.id === 'addLink') setTimeout(resolveAdd, 0); });
+$('#addBody').addEventListener('change', e => { if (e.target.id === 'addLink') resolveAdd(); });
 
 $('#detailBody').addEventListener('click', e => {
+  const p = placeById(detailId);
   const r = e.target.closest('[data-rate]');
-  if (r) { const n = Number(r.dataset.rate); detailRating = detailRating === n ? 0 : n; drawRate(); return; }
+  if (r) {
+    const n = Number(r.dataset.rate);
+    p.rating = p.rating === n ? 0 : n;
+    document.querySelectorAll('#dRate button').forEach(b => b.classList.toggle('on', Number(b.dataset.rate) <= p.rating));
+    return savePlace(p);
+  }
+  const g = e.target.closest('[data-genre]');
+  if (g) {
+    p.genre = p.genre === g.dataset.genre ? '' : g.dataset.genre;
+    savePlace(p);
+    return openDetail(detailId);
+  }
   const b = e.target.closest('[data-d]');
   if (!b) return;
   const act = b.dataset.d;
-  if (act === 'close') $('#detailDlg').close();
-  else if (act === 'save') { savePlace(readDetail()); $('#detailDlg').close(); toast('保存しました'); }
+  if (act === 'close') closeSheet($('#detailDlg'));
+  else if (act === 'stamp') { addVisit(detailId, { x: e.clientX, y: e.clientY }); openDetail(detailId, true); }
   else if (act === 'visit') {
-    const date = $('#vDate').value || today(), memo = $('#vMemo').value.trim();
-    savePlace(readDetail()); // 入力途中の編集内容を失わないよう先に保存
-    addVisit(detailId, date, memo);
-    openDetail(detailId);
-  } else if (act === 'delVisit') { savePlace(readDetail()); deleteVisit(b.dataset.id); openDetail(detailId); }
+    addVisit(detailId, { date: $('#vDate').value || today(), memo: $('#vMemo').value.trim(), x: e.clientX, y: e.clientY });
+    openDetail(detailId, true);
+  } else if (act === 'delVisit') { deleteVisit(b.dataset.id); openDetail(detailId); }
   else if (act === 'delete') {
-    const p = placeById(detailId);
-    if (confirm(`「${p.name}」と来店履歴をすべて削除しますか？`)) { deletePlace(detailId); $('#detailDlg').close(); }
+    if (!deleteArmed) { deleteArmed = true; b.textContent = '本当に削除する（来店履歴も消えます）'; return; }
+    deletePlace(detailId); closeSheet($('#detailDlg')); toast('削除しました');
   }
 });
-document.querySelectorAll('dialog').forEach(d => d.addEventListener('click', e => { if (e.target === d) d.close(); }));
+$('#detailBody').addEventListener('change', e => { if (['dName', 'dStatus', 'dTags', 'dMemo'].includes(e.target.id)) saveDetail(); });
+document.querySelectorAll('dialog').forEach(d => {
+  d.addEventListener('click', e => { if (e.target === d) closeSheet(d); });
+  d.addEventListener('close', () => d.querySelectorAll('#fx, #toast, #cele').forEach(el => layer().appendChild(el)));
+});
 $('#toastUndo').onclick = () => { $('#toast').classList.remove('show'); if (toastUndo) toastUndo(); };
 
 /* ========== 起動 ========== */
