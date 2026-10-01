@@ -20,7 +20,7 @@ function doPost(e) {
   let result;
   try {
     const req = JSON.parse(e.postData.contents);
-    const fns = { getAll: getAll, apply: apply, resolveLink: resolveLink };
+    const fns = { getAll: getAll, apply: apply, resolveLink: resolveLink, findPlace: findPlace };
     if (!fns[req.fn]) throw new Error('unknown function: ' + req.fn);
     result = { ok: true, data: fns[req.fn].apply(null, req.args || []) };
   } catch (err) {
@@ -156,6 +156,30 @@ function resolveLink(input) {
   }
   delete out.query;
   return out;
+}
+
+/**
+ * 店名（と地名）からお店をさがす。Apps Script 組み込みの Maps サービスを使うので、キーも課金登録も要らない。
+ * lat/lng を渡すと、その周辺を優先する。店名までは返ってこない（住所・位置・種類のみ）。
+ * 個人店のように名前で1軒に決まるお店に強く、チェーン店のように候補が多い名前は見つからないことが多い。
+ */
+function findPlace(query, lat, lng) {
+  const geocoder = Maps.newGeocoder().setLanguage('ja').setRegion('jp');
+  if (lat != null && lng != null) geocoder.setBounds(lat - 0.15, lng - 0.2, lat + 0.15, lng + 0.2);
+  const results = geocoder.geocode(String(query || '')).results || [];
+  return results.slice(0, 5).map(function (r) {
+    const types = r.types || [];
+    return {
+      address: cleanAddress_(r.formatted_address),
+      lat: r.geometry.location.lat,
+      lng: r.geometry.location.lng,
+      placeId: r.place_id || '',
+      types: types,
+      // 市や町の名前にしか当たらなかったときは、お店としては見つかっていない
+      isShop: types.some(function (t) { return t === 'establishment' || t === 'point_of_interest' || t === 'food' || t === 'restaurant' || t === 'cafe' || t === 'bar' || t === 'premise' || t === 'subpremise' || t === 'street_address'; }),
+      partial: !!r.partial_match
+    };
+  });
 }
 
 function isFullMapsUrl_(url) {

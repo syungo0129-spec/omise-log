@@ -174,6 +174,10 @@
   .res-t span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .res .btn.small { padding: 8px 10px; white-space: nowrap; }
   #addResults:empty { display: none; }
+  .gres-h { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font: 800 13px/1.4 var(--font-display); letter-spacing: .05em; color: var(--sub); }
+  .gres-h a { font: 500 12px/1.4 var(--font-body); letter-spacing: 0; color: var(--ai); }
+  .gmap { display: block; width: 100%; height: 170px; z-index: 0; border: 1px solid var(--line); border-radius: 8px; margin: 6px 0 2px; background: var(--wash); }
+  .res.gres { border-bottom: 2px solid var(--line); padding-bottom: 12px; margin-bottom: 4px; }
   details.alt { border-top: 1px solid var(--line); padding-top: 10px; }
   details.alt summary { cursor: pointer; font-size: 13px; color: var(--sub); }
   .alt-in { display: grid; gap: 12px; padding-top: 12px; }
@@ -658,15 +662,18 @@ async function remote(fn, ...args) {
 const api = HAS_GAS ? {
   getAll: () => gas('getAll'),
   apply: ops => gas('apply', ops),
-  resolve: text => gas('resolveLink', text)
+  resolve: text => gas('resolveLink', text),
+  find: (q, lat, lng) => gas('findPlace', q, lat, lng)
 } : API_URL ? {
   getAll: () => remote('getAll'),
   apply: ops => remote('apply', ops),
-  resolve: text => remote('resolveLink', text)
+  resolve: text => remote('resolveLink', text),
+  find: (q, lat, lng) => remote('findPlace', q, lat, lng)
 } : {
   // 保存先が未設定のときはこの端末のブラウザだけに保存する（お試し用）
   getAll: async () => store('cache') || { places: [], visits: [], appUrl: location.origin + location.pathname },
   apply: async () => true,
+  find: async () => [], // Googleでの検索は保存先（Apps Script）につないだときだけ
   resolve: async text => {
     const m = text.match(/https?:\/\/[^\s]+/);
     if (!m) return { name: text.trim().split('\n')[0] };
@@ -1568,33 +1575,51 @@ async function nearbyPlaces(pos) {
   }).filter(r => r.name && r.lat != null);
 }
 
-function showResults(list, emptyMsg) {
+function showResults(list, emptyMsg, top) {
   const d = r => ui.pos && r.lat != null ? distance(ui.pos, r) : Infinity;
   // 飲食店を先に、近い順に
-  addResults = list.slice().sort((a, b) => (b.food - a.food) || (d(a) - d(b))).slice(0, 12);
+  addResults = (top ? [top] : []).concat(list.slice().sort((a, b) => (b.food - a.food) || (d(a) - d(b))).slice(0, 12));
   $('#addResults').innerHTML = addResults.length ? addResults.map((r, i) => {
     const dup = findDuplicate(r), n = dup ? visitsOf(dup.id).length : 0;
     const sub = [dup ? `登録済み${n ? '・' + n + '回' : ''}` : '', esc(r.genre), isFinite(d(r)) ? fmtDist(d(r)) : '', esc(r.address)].filter(Boolean).join(' · ');
-    return `<div class="res">${sealSvg(r.name, inkOf(dup || r), 38, { fx: false, inked: !dup || dup.status !== 'want' })}
+    // Googleで見つかった1軒は、地図で確かめてから「これにする！」
+    const gmap = r.google ? `<div class="gres-h"><span>Googleで見つかったお店</span><a href="${esc(r.mapsUrl)}" target="_blank" rel="noopener">Googleマップで確かめる</a></div><div class="gmap" id="miniMap"></div>` : '';
+    return `${gmap}<div class="res${r.google ? ' gres' : ''}">${sealSvg(r.name, inkOf(dup || r), 38, { fx: false, inked: !dup || dup.status !== 'want' })}
       <span class="res-t"><b>${esc(r.name)}</b><span>${sub}</span></span>
-      <button class="btn stampbtn small" data-pick="${i}:visited">行った</button>
+      <button class="btn stampbtn small" data-pick="${i}:visited">${r.google ? 'これにする！' : '行った'}</button>
       ${dup ? '' : `<button class="btn small" data-pick="${i}:want">行きたい</button>`}</div>`;
   }).join('') + '<div class="note">お店のデータ: © OpenStreetMap contributors</div>'
     : `<div class="note">${emptyMsg}</div>`;
+  drawMiniMap(top);
+}
+
+// 見つかった場所を小さな地図で見せる（場所が合っているか、押す前に確かめられる）
+let miniMap;
+function drawMiniMap(top) {
+  if (miniMap) { miniMap.remove(); miniMap = null; }
+  if (!top || typeof L === 'undefined' || !$('#miniMap')) return;
+  miniMap = L.map('miniMap', { dragging: false, scrollWheelZoom: false, attributionControl: false }).setView([top.lat, top.lng], 17);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(miniMap);
+  L.marker([top.lat, top.lng], { icon: L.divIcon({ className: '', iconSize: [44, 44], iconAnchor: [22, 22], html: `<div class="pin">${sealSvg(top.name, inkOf(top), 34, { fx: false })}</div>` }) }).addTo(miniMap);
+  setTimeout(() => miniMap && miniMap.invalidateSize(), 250);
 }
 
 async function runSearch() {
   const q = $('#addQuery').value.trim();
   if (!q) return;
   $('#addResults').innerHTML = '<div class="note">さがしています…</div>';
-  try {
-    const list = await searchPlaces(q);
-    if (!$('#addDlg').open) return;
-    showResults(list, '見つかりませんでした。新しいお店や小さなお店は「Googleマップでさがす」から登録できます');
-    if (!list.length) { $('#addName').value = q; updateAddPreview(false); $('#addAlt').open = true; }
-  } catch (e) {
-    $('#addResults').innerHTML = '<div class="note">検索できませんでした。通信を確かめるか、下から登録してください</div>';
-  }
+  const pos = ui.pos || {};
+  // Google（個人店に強い）と OpenStreetMap（チェーン店に強い）を同時に引く
+  const [found, osm] = await Promise.all([api.find(q, pos.lat, pos.lng).catch(() => []), searchPlaces(q).catch(() => null)]);
+  if (!$('#addDlg').open) return;
+  const hit = (found || []).find(r => r.isShop);
+  const top = hit ? {
+    name: q, address: hit.address, lat: hit.lat, lng: hit.lng, genre: '', gid: hit.placeId, food: true, google: true,
+    mapsUrl: 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q) + '&query_place_id=' + encodeURIComponent(hit.placeId)
+  } : null;
+  if (!top && !osm) { $('#addResults').innerHTML = '<div class="note">検索できませんでした。通信を確かめるか、下から登録してください</div>'; return; }
+  showResults(osm || [], '見つかりませんでした。地名を足す（例: 店名 今池）か、「Googleマップでさがす」から登録できます', top);
+  if (!top && !(osm || []).length) { $('#addName').value = q; updateAddPreview(false); $('#addAlt').open = true; }
 }
 
 async function loadNearby() {
@@ -1620,7 +1645,7 @@ function pickResult(r, status, ev) {
   }
   const p = {
     id: uid(), name: r.name, status, genre: r.genre || '', tags: '', rating: 0, memo: '',
-    address: r.address || '', lat: r.lat, lng: r.lng, mapsUrl: '', gid: r.gid, createdAt: now(), updatedAt: now()
+    address: r.address || '', lat: r.lat, lng: r.lng, mapsUrl: r.mapsUrl || '', gid: r.gid, createdAt: now(), updatedAt: now()
   };
   S.places.push(p);
   slamId = p.id;
