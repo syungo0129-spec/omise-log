@@ -101,6 +101,13 @@
   .seal.blank text { opacity: .45; }
   .seal-wrap.slam { animation: slam .55s cubic-bezier(.2, 1.5, .4, 1); }
   .seal-wrap.slam::after { content: ''; position: absolute; inset: -6px; border-radius: 50%; background: radial-gradient(circle, currentColor 0 35%, transparent 70%); filter: blur(7px); animation: ripple .9s ease-out forwards; pointer-events: none; }
+  #shelf { display: grid; gap: 12px; }
+  .minis { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 2px 16px 6px; }
+  .minis::-webkit-scrollbar { display: none; }
+  .mini { flex: none; width: 204px; display: grid; grid-template-columns: auto 1fr; gap: 9px; align-items: center; text-align: left; padding: 8px 10px; background: var(--card); border: 1px solid var(--line); border-radius: 8px; transition: transform .12s; }
+  .mini:active { transform: scale(.97); }
+  .mini-t { display: grid; min-width: 0; font-size: 12px; color: var(--sub); }
+  .mini-t b { color: var(--ink); font: 800 14px/1.4 var(--font-display); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .empty { text-align: center; color: var(--sub); padding: 28px 8px; display: grid; gap: 12px; justify-items: center; }
   .empty b { color: var(--ink); font-size: 17px; }
 
@@ -304,6 +311,7 @@
         <span class="hero-label" id="heroNext"></span>
       </div>
     </div>
+    <div id="shelf" hidden></div>
     <div class="seg" id="seg"></div>
     <div class="finder">
       <input type="search" id="q" placeholder="店名・タグでさがす" aria-label="検索">
@@ -804,8 +812,35 @@ function render() {
   if (ui.tab === 'stats') renderStats();
 }
 
+// ご無沙汰: 3回以上行ったのに、最後の来店からこの日数以上あいたお店
+const GOBUSATA_DAYS = 60, GOBUSATA_MIN_VISITS = 3;
+// 近くの行きたいお店: 現在地からこの距離（m）以内
+const NEAR_METERS = 1000;
+const daysSince = s => Math.round((new Date(today() + 'T00:00:00') - new Date(s + 'T00:00:00')) / 864e5);
+
+function nearbyWants() {
+  if (!ui.pos) return [];
+  return S.places.filter(p => p.status === 'want' && p.lat != null).map(p => [p, distance(ui.pos, p)])
+    .filter(x => x[1] <= NEAR_METERS).sort((a, b) => a[1] - b[1]).slice(0, 6);
+}
+
+function renderShelf(idx) {
+  const mini = (p, sub) => `<button class="mini" data-open="${esc(p.id)}">${sealOf(p, 44)}<span class="mini-t"><b>${esc(p.name)}</b><span>${sub}</span></span></button>`;
+  const long = S.places.filter(p => idx[p.id] && idx[p.id].count >= GOBUSATA_MIN_VISITS && daysSince(idx[p.id].last) >= GOBUSATA_DAYS)
+    .sort((a, b) => idx[b.id].count - idx[a.id].count).slice(0, 6);
+  const near = nearbyWants();
+  let html = '';
+  if (near.length) html += `<div class="block"><h2>近くの行きたいお店</h2><div class="minis">${near.map(([p, d]) => mini(p, 'ここから' + fmtDist(d))).join('')}</div></div>`;
+  else if (!ui.pos && S.places.some(p => p.status === 'want' && p.lat != null)) html += '<div><button class="btn small" id="nearBtn">近くの行きたいお店をさがす</button></div>';
+  if (long.length) html += `<div class="block"><h2>ご無沙汰のお店</h2><div class="minis">${long.map(p => mini(p, `${daysSince(idx[p.id].last)}日ぶり・これまで${idx[p.id].count}回`)).join('')}</div></div>`;
+  const el = $('#shelf');
+  el.innerHTML = html;
+  el.hidden = !html || !!ui.q.trim();
+}
+
 function renderList() {
   const idx = visitIndex();
+  renderShelf(idx);
   const month = today().slice(0, 7);
   countTo($('#heroNum'), S.visits.filter(v => v.date.startsWith(month)).length);
   const lv = levelOf(S.visits.length), mo = new Date().getMonth();
@@ -1310,6 +1345,15 @@ $('#sort').onchange = async e => {
   if (ui.sort === 'near' && !ui.pos) await ensurePosition();
   listAnim = true; renderList();
 };
+$('#shelf').onclick = async e => {
+  const open = e.target.closest('[data-open]');
+  if (open) return openDetail(open.dataset.open);
+  if (e.target.id === 'nearBtn' && await ensurePosition()) {
+    store('geoOk', true); // 次からは開いたときに自動でさがす
+    renderList();
+    if (!nearbyWants().length) toast(`${NEAR_METERS / 1000}km以内に行きたいお店はありません`);
+  }
+};
 $('#seg').onclick = e => {
   const b = e.target.closest('[data-filter]');
   if (b) { ui.filter = b.dataset.filter; saveUi(); listAnim = true; renderList(); }
@@ -1403,7 +1447,7 @@ $('#toastUndo').onclick = () => { $('#toast').classList.remove('show'); if (toas
 (async function init() {
   render();
   await load();
-  if (ui.sort === 'near') locate().then(renderList, () => {});
+  if (ui.sort === 'near' || store('geoOk')) locate().then(renderList, () => {});
   // ?add=<Googleマップのリンク> で開かれたら登録画面を出す（ショートカット／ブックマークレット用）
   if (HAS_GAS) google.script.url.getLocation(loc => { if (loc.parameter.add) openAdd(loc.parameter.add); });
   else { const add = new URLSearchParams(location.search).get('add'); if (add) openAdd(add); }
