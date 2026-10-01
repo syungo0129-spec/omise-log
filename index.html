@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>お店ログ</title>
+<link rel="icon" href="icon.png">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  :root {
+    --bg: #f6f5f2; --card: #fff; --text: #1f1d1a; --sub: #76716a; --line: #e4e0d9;
+    --accent: #e8590c; --accent-weak: #fff1e6; --want: #1c7ed6; --want-weak: #e7f3ff; --danger: #c92a2a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17161a; --card: #232227; --text: #eeece8; --sub: #a09b94; --line: #38363d;
+      --accent: #ff8a3d; --accent-weak: #3a2a1f; --want: #5aa9f0; --want-weak: #1d2c3d;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic UI", Meiryo, sans-serif;
+    -webkit-text-size-adjust: 100%;
+  }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  #app { max-width: 760px; margin: 0 auto; min-height: 100%; display: flex; flex-direction: column; padding-bottom: 64px; }
+
+  header { display: flex; align-items: center; gap: 8px; padding: 12px 16px 4px; }
+  header h1 { font-size: 20px; margin: 0; flex: 1; }
+  #sync { font-size: 12px; color: var(--sub); }
+  #sync.error { color: var(--danger); text-decoration: underline; cursor: pointer; }
+  .btn { border: 1px solid var(--line); background: var(--card); border-radius: 10px; padding: 8px 12px; text-decoration: none; color: var(--text); display: inline-block; text-align: center; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+  .btn.want { background: var(--want); border-color: var(--want); color: #fff; font-weight: 700; }
+  .btn.danger { color: var(--danger); }
+  .btn.small { padding: 4px 10px; font-size: 13px; }
+
+  .tools { padding: 8px 16px; display: grid; gap: 8px; }
+  .tools input[type=search], .field input, .field select, .field textarea {
+    width: 100%; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); font-size: 16px;
+  }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .chips { display: flex; gap: 6px; }
+  .chip { border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 5px 12px; font-size: 13px; }
+  .chip.on { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .tools select { padding: 6px 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); font-size: 13px; max-width: 46%; }
+
+  #list { padding: 0 16px; display: grid; gap: 8px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px; display: flex; gap: 10px; align-items: center; }
+  .card .main { flex: 1; min-width: 0; cursor: pointer; }
+  .name { font-weight: 700; overflow-wrap: anywhere; }
+  .meta { font-size: 13px; color: var(--sub); overflow-wrap: anywhere; }
+  .meta b { color: var(--accent); font-size: 15px; }
+  .badge { font-size: 11px; font-weight: 700; border-radius: 6px; padding: 1px 6px; margin-left: 4px; vertical-align: 2px; white-space: nowrap; }
+  .badge.want { background: var(--want-weak); color: var(--want); }
+  .stars { color: #f0a500; letter-spacing: 1px; }
+  .card .actions { display: grid; gap: 6px; flex: none; }
+  .empty { text-align: center; color: var(--sub); padding: 40px 16px; }
+
+  nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--card); border-top: 1px solid var(--line); display: flex; justify-content: center; padding-bottom: env(safe-area-inset-bottom); z-index: 1000; }
+  nav button { flex: 1; max-width: 250px; border: 0; background: none; padding: 12px 0; color: var(--sub); font-size: 13px; }
+  nav button.on { color: var(--accent); font-weight: 700; }
+
+  #map { height: calc(100vh - 150px); min-height: 320px; margin: 8px 16px; border-radius: 14px; border: 1px solid var(--line); }
+  .leaflet-popup-content { font-size: 14px; }
+
+  #stats { padding: 8px 16px; display: grid; gap: 12px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+  .tile { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; }
+  .tile .v { font-size: 24px; font-weight: 700; }
+  .tile .l { font-size: 12px; color: var(--sub); }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
+  .panel h2 { font-size: 15px; margin: 0 0 8px; }
+  .bar { display: grid; grid-template-columns: minmax(70px, 40%) 1fr 36px; gap: 8px; align-items: center; font-size: 13px; padding: 2px 0; }
+  .bar .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar .b { height: 10px; border-radius: 5px; background: var(--accent); min-width: 2px; }
+  .bar .n { text-align: right; font-variant-numeric: tabular-nums; }
+  .panel ol, .panel ul { margin: 4px 0; padding-left: 22px; font-size: 13px; }
+  .panel code, .panel input[readonly] { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+  .panel input[readonly] { width: 100%; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
+
+  dialog { border: 0; border-radius: 16px; padding: 0; width: min(560px, calc(100vw - 24px)); max-height: calc(100vh - 32px); background: var(--bg); color: var(--text); }
+  dialog::backdrop { background: rgba(0, 0, 0, .5); }
+  .dlg { padding: 16px; display: grid; gap: 10px; }
+  .dlg h2 { margin: 0; font-size: 17px; }
+  .field { display: grid; gap: 3px; }
+  .field > span { font-size: 12px; color: var(--sub); }
+  .field textarea { min-height: 64px; resize: vertical; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .rate button { border: 0; background: none; font-size: 26px; padding: 0 2px; color: var(--line); }
+  .rate button.on { color: #f0a500; }
+  .visits { display: grid; gap: 4px; }
+  .visit { display: flex; gap: 8px; align-items: center; font-size: 14px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; }
+  .visit .d { font-variant-numeric: tabular-nums; flex: none; }
+  .visit .m { flex: 1; color: var(--sub); overflow-wrap: anywhere; }
+  .visit button { border: 0; background: none; color: var(--sub); font-size: 16px; }
+  .note { font-size: 13px; color: var(--sub); }
+  .hit { background: var(--accent-weak); border-radius: 10px; padding: 8px 10px; font-size: 14px; }
+
+  #toast { position: fixed; left: 50%; bottom: 76px; transform: translateX(-50%); background: #222; color: #fff; border-radius: 12px; padding: 10px 14px; font-size: 14px; display: none; gap: 12px; align-items: center; z-index: 2000; width: max-content; max-width: calc(100vw - 24px); }
+  #toast.show { display: flex; }
+  #toast button { border: 0; background: none; color: #ffb37a; font-weight: 700; flex: none; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>お店ログ</h1>
+    <span id="sync"></span>
+    <button class="btn primary" id="addBtn">＋ 登録</button>
+  </header>
+
+  <section id="tab-list">
+    <div class="tools">
+      <input type="search" id="q" placeholder="店名・メモ・タグで検索">
+      <div class="row">
+        <div class="chips" id="filters"></div>
+        <span style="flex:1"></span>
+        <select id="tag" aria-label="ジャンル・タグ"></select>
+        <select id="sort" aria-label="並べ替え">
+          <option value="recent">最近行った順</option>
+          <option value="count">訪問回数順</option>
+          <option value="near">現在地から近い順</option>
+          <option value="rating">評価順</option>
+          <option value="added">登録が新しい順</option>
+          <option value="name">名前順</option>
+        </select>
+      </div>
+    </div>
+    <div id="list"></div>
+  </section>
+
+  <section id="tab-map" hidden>
+    <div class="tools"><div class="row">
+      <button class="btn small" id="locBtn">現在地へ</button>
+      <span class="note"><span style="color:var(--accent)">● 行った</span>　<span style="color:var(--want)">● 行きたい</span></span>
+    </div></div>
+    <div id="map"></div>
+  </section>
+
+  <section id="tab-stats" hidden><div id="stats"></div></section>
+</div>
+
+<nav>
+  <button data-tab="list" class="on">リスト</button>
+  <button data-tab="map">マップ</button>
+  <button data-tab="stats">統計・設定</button>
+</nav>
+
+<dialog id="addDlg"><div class="dlg" id="addBody"></div></dialog>
+<dialog id="detailDlg"><div class="dlg" id="detailBody"></div></dialog>
+<div id="toast"><span id="toastMsg"></span><button id="toastUndo">取り消す</button></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+'use strict';
+/* ========== ユーティリティ ========== */
+const $ = (s, el = document) => el.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const pad = n => String(n).padStart(2, '0');
+const ymd = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+const today = () => ymd(new Date());
+const now = () => new Date().toISOString();
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const GENRES = ['ラーメン', 'カフェ', '居酒屋', '和食', '洋食', '中華', '焼肉', '寿司', 'カレー', 'バー', 'スイーツ', 'その他'];
+
+function store(key, value) {
+  try {
+    if (value === undefined) return JSON.parse(localStorage.getItem('omise.' + key));
+    localStorage.setItem('omise.' + key, JSON.stringify(value));
+  } catch (e) { return null; }
+}
+
+function distance(a, b) {
+  const R = 6371000, rad = x => x * Math.PI / 180;
+  const dLat = rad(b.lat - a.lat), dLng = rad(b.lng - a.lng);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+const fmtDist = m => m < 1000 ? Math.round(m / 10) * 10 + 'm' : (m / 1000).toFixed(m < 10000 ? 1 : 0) + 'km';
+
+/* Code.gs の parseMapsUrl と同じ内容（ローカル動作用）。変更時は両方直すこと */
+function parseMapsUrl(url) {
+  const out = {};
+  const dec = function (s) {
+    try { return decodeURIComponent(s.replace(/\+/g, ' ')); } catch (e) { return s; }
+  };
+  let m = url.match(/\/maps\/(?:place|search)\/([^/@?]+)/);
+  if (m) out.name = dec(m[1]);
+  m = url.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/) || url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+  if (m) { out.lat = Number(m[1]); out.lng = Number(m[2]); }
+  m = url.match(/0x[0-9a-f]+:0x[0-9a-f]+/i);
+  if (m) out.gid = m[0].toLowerCase();
+  m = url.match(/[?&](?:q|query)=([^&#]+)/);
+  if (m) {
+    const q = dec(m[1]);
+    const ll = q.match(/^\s*(-?\d+\.\d+),\s*(-?\d+\.\d+)\s*$/);
+    if (ll) {
+      if (out.lat == null) { out.lat = Number(ll[1]); out.lng = Number(ll[2]); }
+    } else {
+      out.query = q;
+      const parts = q.split(/\n|,\s*|、|\s*〒/);
+      if (!out.name) out.name = parts[0].trim();
+      if (q.length > parts[0].length) out.address = q.slice(parts[0].length).replace(/^[\s,、]+/, '').trim();
+    }
+  }
+  return out;
+}
+
+/* ========== バックエンド（Apps Script / ローカル） ========== */
+const HAS_GAS = typeof google !== 'undefined' && google.script && google.script.run;
+const gas = (fn, ...args) => new Promise((resolve, reject) =>
+  google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)[fn](...args));
+
+// 外部（GitHub Pages等）に置いた場合の保存先。秘密のURLなのでコードには書かず、
+// 設定用リンク（#api=...）か設定欄から端末ごとに1回だけ受け取って保存する
+const API_PREFIX = 'https://script.google.com/macros/s/';
+function setApiUrl(url) {
+  url = String(url || '').trim();
+  if (url && !url.startsWith(API_PREFIX)) return false;
+  store('api', url);
+  return true;
+}
+(function readSetupLink() {
+  const m = location.hash.match(/^#api=(.+)$/);
+  if (!m) return;
+  try { setApiUrl(decodeURIComponent(m[1])); } catch (e) { /* 壊れたリンクは無視 */ }
+  history.replaceState(null, '', location.pathname + location.search);
+})();
+const API_URL = HAS_GAS ? '' : (store('api') || '');
+async function remote(fn, ...args) {
+  const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify({ fn, args }) });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error);
+  return json.data;
+}
+
+const api = HAS_GAS ? {
+  getAll: () => gas('getAll'),
+  apply: ops => gas('apply', ops),
+  resolve: text => gas('resolveLink', text)
+} : API_URL ? {
+  getAll: () => remote('getAll'),
+  apply: ops => remote('apply', ops),
+  resolve: text => remote('resolveLink', text)
+} : {
+  // Apps Script の外で開いたときはこの端末のブラウザだけに保存する（お試し用）
+  getAll: async () => store('cache') || { places: [], visits: [], appUrl: location.origin + location.pathname },
+  apply: async () => true,
+  resolve: async text => {
+    const m = text.match(/https?:\/\/[^\s]+/);
+    if (!m) return { name: text.trim().split('\n')[0] };
+    const out = parseMapsUrl(m[0]);
+    out.mapsUrl = m[0];
+    delete out.query;
+    return out;
+  }
+};
+
+/* ========== 状態 ========== */
+let S = { places: [], visits: [], appUrl: '' };
+let queue = store('queue') || [];
+let flushing = false;
+const ui = Object.assign({ tab: 'list', filter: 'all', sort: 'recent', q: '', tag: '', pos: null }, store('ui') || {}, { tab: 'list', q: '', pos: null });
+
+function normalize(data) {
+  data.places.forEach(p => {
+    p.lat = p.lat === '' || p.lat == null ? null : Number(p.lat);
+    p.lng = p.lng === '' || p.lng == null ? null : Number(p.lng);
+    p.rating = Number(p.rating) || 0;
+    p.status = p.status === 'want' ? 'want' : 'visited';
+  });
+  data.visits.forEach(v => { v.date = String(v.date).replace(/\//g, '-').slice(0, 10); });
+  return data;
+}
+
+const placeById = id => S.places.find(p => p.id === id);
+const visitsOf = id => S.visits.filter(v => v.placeId === id).sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
+function visitIndex() {
+  const idx = {};
+  S.visits.forEach(v => {
+    const e = idx[v.placeId] || (idx[v.placeId] = { count: 0, last: '' });
+    e.count++;
+    if (v.date > e.last) e.last = v.date;
+  });
+  return idx;
+}
+
+function setSync(state) {
+  const el = $('#sync');
+  el.className = state === 'error' ? 'error' : '';
+  el.textContent = { saving: '保存中…', loading: '読み込み中…', error: '未保存あり・タップで再試行', ok: '' }[state] || '';
+  if (!HAS_GAS && !API_URL && state === 'ok') el.textContent = 'お試しモード（この端末のみ保存）';
+}
+
+function commit(ops) {
+  queue.push(...ops);
+  store('queue', queue);
+  store('cache', S);
+  render();
+  flush();
+}
+
+async function flush() {
+  if (flushing) return;
+  flushing = true;
+  try {
+    while (queue.length) {
+      setSync('saving');
+      const batch = queue.slice();
+      await api.apply(batch);
+      queue.splice(0, batch.length);
+      store('queue', queue);
+    }
+    setSync('ok');
+  } catch (e) {
+    setSync('error');
+  }
+  flushing = false;
+}
+
+async function load() {
+  const cached = store('cache');
+  if (cached) { S = normalize(cached); render(); }
+  setSync('loading');
+  await flush();
+  if (queue.length) return; // 未送信分があるうちはサーバーの古い内容で上書きしない
+  try {
+    S = normalize(await api.getAll());
+    if (!HAS_GAS) S.appUrl = location.origin + location.pathname;
+    store('cache', S);
+    setSync('ok');
+    render();
+  } catch (e) {
+    setSync('error');
+  }
+}
+
+/* ========== 操作 ========== */
+function addVisit(placeId, date, memo) {
+  const p = placeById(placeId);
+  const v = { id: uid(), placeId, date: date || today(), memo: memo || '', createdAt: now() };
+  S.visits.push(v);
+  const ops = [{ op: 'upsert', sheet: 'visits', row: v }];
+  const wasWant = p.status === 'want';
+  if (wasWant) { // 行きたい店は来店したら自動で「行った」へ
+    p.status = 'visited'; p.updatedAt = now();
+    ops.push({ op: 'upsert', sheet: 'places', row: p });
+  }
+  commit(ops);
+  toast(`「${p.name}」に来店を記録（累計${visitsOf(placeId).length}回）`, () => {
+    S.visits = S.visits.filter(x => x.id !== v.id);
+    const undo = [{ op: 'delete', sheet: 'visits', id: v.id }];
+    if (wasWant) { p.status = 'want'; undo.push({ op: 'upsert', sheet: 'places', row: p }); }
+    commit(undo);
+  });
+}
+
+function deleteVisit(id) {
+  S.visits = S.visits.filter(v => v.id !== id);
+  commit([{ op: 'delete', sheet: 'visits', id }]);
+}
+
+function savePlace(p) {
+  p.updatedAt = now();
+  if (!placeById(p.id)) S.places.push(p);
+  commit([{ op: 'upsert', sheet: 'places', row: p }]);
+}
+
+function deletePlace(id) {
+  S.places = S.places.filter(p => p.id !== id);
+  S.visits = S.visits.filter(v => v.placeId !== id);
+  commit([{ op: 'deletePlace', id }]);
+}
+
+function findDuplicate(info) {
+  const norm = s => String(s || '').replace(/\s+/g, '').toLowerCase();
+  return S.places.find(p =>
+    (info.gid && p.gid === info.gid) ||
+    (info.mapsUrl && p.mapsUrl === info.mapsUrl) ||
+    (info.name && norm(p.name) === norm(info.name) &&
+      (info.lat == null || p.lat == null || distance(p, info) < 200)));
+}
+
+function mapsLink(p) {
+  if (p.mapsUrl) return p.mapsUrl;
+  const q = p.lat != null && !p.name ? p.lat + ',' + p.lng : p.name + (p.address ? ' ' + p.address : '');
+  return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
+}
+
+function locate() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) return reject(new Error('unsupported'));
+    navigator.geolocation.getCurrentPosition(
+      pos => { ui.pos = { lat: pos.coords.latitude, lng: pos.coords.longitude }; resolve(ui.pos); },
+      reject, { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
+  });
+}
+
+/* ========== 描画 ========== */
+const stars = n => n ? `<span class="stars">${'★'.repeat(n)}${'☆'.repeat(5 - n)}</span>` : '';
+const tagsOf = p => String(p.tags || '').split(/[,、\s]+/).filter(Boolean);
+
+function render() {
+  renderList();
+  if (ui.tab === 'map') renderMap();
+  if (ui.tab === 'stats') renderStats();
+}
+
+function renderList() {
+  const idx = visitIndex();
+  const counts = { all: S.places.length, visited: 0, want: 0 };
+  S.places.forEach(p => counts[p.status]++);
+  $('#filters').innerHTML = [['all', 'すべて'], ['visited', '行った'], ['want', '行きたい']]
+    .map(([k, l]) => `<button class="chip ${ui.filter === k ? 'on' : ''}" data-filter="${k}">${l} ${counts[k]}</button>`).join('');
+
+  const labels = new Set();
+  S.places.forEach(p => { if (p.genre) labels.add(p.genre); tagsOf(p).forEach(t => labels.add(t)); });
+  if (ui.tag && !labels.has(ui.tag)) ui.tag = '';
+  $('#tag').innerHTML = '<option value="">ジャンル・タグ</option>' +
+    [...labels].sort().map(t => `<option ${t === ui.tag ? 'selected' : ''}>${esc(t)}</option>`).join('');
+  $('#sort').value = ui.sort;
+
+  const q = ui.q.trim().toLowerCase();
+  let items = S.places.filter(p =>
+    (ui.filter === 'all' || p.status === ui.filter) &&
+    (!ui.tag || p.genre === ui.tag || tagsOf(p).includes(ui.tag)) &&
+    (!q || [p.name, p.genre, p.tags, p.memo, p.address].join(' ').toLowerCase().includes(q)));
+
+  const cnt = p => (idx[p.id] || {}).count || 0;
+  const last = p => (idx[p.id] || {}).last || '';
+  const dist = p => ui.pos && p.lat != null ? distance(ui.pos, p) : Infinity;
+  const sorters = {
+    recent: (a, b) => (last(b) || b.createdAt).localeCompare(last(a) || a.createdAt),
+    count: (a, b) => cnt(b) - cnt(a) || last(b).localeCompare(last(a)),
+    near: (a, b) => dist(a) - dist(b),
+    rating: (a, b) => b.rating - a.rating || cnt(b) - cnt(a),
+    added: (a, b) => b.createdAt.localeCompare(a.createdAt),
+    name: (a, b) => a.name.localeCompare(b.name, 'ja')
+  };
+  items.sort(sorters[ui.sort] || sorters.recent);
+
+  $('#list').innerHTML = items.length ? items.map(p => {
+    const sub = [esc(p.genre), stars(p.rating), isFinite(dist(p)) ? fmtDist(dist(p)) : ''].filter(Boolean).join(' ・ ');
+    const hist = cnt(p) ? `累計 <b>${cnt(p)}</b> 回 ・ 最終 ${esc(last(p))}` : 'まだ行っていません';
+    return `<article class="card" data-id="${esc(p.id)}">
+      <div class="main" data-act="detail">
+        <div class="name">${esc(p.name)}${p.status === 'want' ? '<span class="badge want">行きたい</span>' : ''}</div>
+        ${sub ? `<div class="meta">${sub}</div>` : ''}
+        <div class="meta">${hist}</div>
+      </div>
+      <div class="actions">
+        <button class="btn primary small" data-act="visit">＋行った</button>
+        <a class="btn small" href="${esc(mapsLink(p))}" target="_blank" rel="noopener">地図</a>
+      </div>
+    </article>`;
+  }).join('') : `<div class="empty">${S.places.length ? '条件に合うお店がありません' : 'まだお店がありません。<br>右上の「＋ 登録」から、Googleマップのリンクを貼って追加できます。'}</div>`;
+}
+
+/* ---------- マップ ---------- */
+let map, markers;
+function renderMap() {
+  if (typeof L === 'undefined') { $('#map').innerHTML = '<div class="empty">地図を読み込めませんでした</div>'; return; }
+  if (!map) {
+    map = L.map('map').setView([35.681, 139.767], 12);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
+    markers = L.layerGroup().addTo(map);
+    map.on('popupopen', e => {
+      const el = e.popup.getElement();
+      el.querySelectorAll('[data-pop]').forEach(b => b.onclick = () => {
+        if (b.dataset.pop === 'visit') { addVisit(b.dataset.id); } else { map.closePopup(); openDetail(b.dataset.id); }
+      });
+    });
+  }
+  setTimeout(() => map.invalidateSize(), 0);
+  markers.clearLayers();
+  const idx = visitIndex();
+  const css = getComputedStyle(document.documentElement);
+  const pts = [];
+  S.places.filter(p => p.lat != null && p.lng != null).forEach(p => {
+    const color = css.getPropertyValue(p.status === 'want' ? '--want' : '--accent').trim();
+    const c = (idx[p.id] || {}).count || 0;
+    L.circleMarker([p.lat, p.lng], { radius: 8 + Math.min(c, 8), color: '#fff', weight: 2, fillColor: color, fillOpacity: .9 })
+      .bindPopup(`<b>${esc(p.name)}</b><br>${c ? '累計 ' + c + ' 回' : '行きたい'}<br>
+        <button class="btn primary small" data-pop="visit" data-id="${esc(p.id)}">＋行った</button>
+        <button class="btn small" data-pop="detail" data-id="${esc(p.id)}">詳細</button>`)
+      .addTo(markers);
+    pts.push([p.lat, p.lng]);
+  });
+  if (pts.length && !map._fitted) { map.fitBounds(pts, { padding: [30, 30], maxZoom: 16 }); map._fitted = true; }
+}
+
+/* ---------- 統計 ---------- */
+function bars(rows) {
+  const max = Math.max(1, ...rows.map(r => r[1]));
+  return rows.map(([t, n]) => `<div class="bar"><span class="t">${esc(t)}</span><span><div class="b" style="width:${n / max * 100}%"></div></span><span class="n">${n}</span></div>`).join('');
+}
+
+function renderStats() {
+  const idx = visitIndex();
+  const month = today().slice(0, 7);
+  const visited = S.places.filter(p => p.status === 'visited').length;
+  const tiles = [
+    ['行った店', visited], ['行きたい店', S.places.length - visited],
+    ['累計訪問回数', S.visits.length], ['今月の訪問', S.visits.filter(v => v.date.startsWith(month)).length]
+  ];
+  const ranking = S.places.map(p => [p.name, (idx[p.id] || {}).count || 0]).filter(r => r[1]).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  const months = [];
+  const d = new Date(); d.setDate(1);
+  for (let i = 0; i < 12; i++) { months.unshift(ymd(d).slice(0, 7)); d.setMonth(d.getMonth() - 1); }
+  const monthly = months.map(m => [m, S.visits.filter(v => v.date.startsWith(m)).length]);
+  const genre = {};
+  S.visits.forEach(v => { const p = placeById(v.placeId); if (p) { const g = p.genre || '未設定'; genre[g] = (genre[g] || 0) + 1; } });
+  const genres = Object.entries(genre).sort((a, b) => b[1] - a[1]);
+  const appUrl = S.appUrl || '';
+
+  $('#stats').innerHTML = `
+    <div class="tiles">${tiles.map(([l, v]) => `<div class="tile"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('')}</div>
+    <div class="panel"><h2>行きたい店ルーレット</h2>
+      <div class="row"><button class="btn" id="roulette">今日どこ行く？</button><span id="rouletteOut" class="note">行きたい店からランダムに1軒選びます</span></div></div>
+    <div class="panel"><h2>訪問回数ランキング</h2>${ranking.length ? bars(ranking) : '<div class="note">まだ訪問記録がありません</div>'}</div>
+    <div class="panel"><h2>月別の訪問回数（直近12か月）</h2>${bars(monthly)}</div>
+    ${genres.length ? `<div class="panel"><h2>ジャンル別の訪問回数</h2>${bars(genres)}</div>` : ''}
+    ${HAS_GAS ? '' : API_URL ? `<div class="panel"><h2>ほかの端末で使う</h2>
+      <div class="note">使いたい端末で下の設定用リンクを1回開くと、同じデータにつながります。データを読み書きできる鍵なので、他人には見せないでください。</div>
+      <input readonly value="${esc(appUrl + '#api=' + encodeURIComponent(API_URL))}" onclick="this.select()">
+    </div>` : `<div class="panel"><h2>データ保存先の設定</h2>
+      <div class="note">いまはお試しモードです（この端末のブラウザにだけ保存）。Apps Script のウェブアプリURLを入れると、スプレッドシートに保存して端末間で同期します。</div>
+      <div class="row" style="flex-wrap:nowrap;margin-top:6px"><input id="apiInput" placeholder="${API_PREFIX}…/exec" style="flex:1;min-width:0;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card)">
+      <button class="btn small" id="apiSave">保存</button></div>
+    </div>`}
+    <div class="panel"><h2>Googleマップからワンタップ登録する設定</h2>
+      <div class="note">このアプリのURL</div>
+      <input readonly value="${esc(appUrl)}" onclick="this.select()">
+      <div class="note" style="margin-top:8px"><b>iPhone</b>（ショートカットアプリで1回だけ作成）</div>
+      <ol>
+        <li>「ショートカット」アプリで新規作成し、名前を「お店ログに追加」にする</li>
+        <li>ⓘ →「共有シートに表示」をオン（受け取る種類は URL とテキスト）</li>
+        <li>アクション「URLエンコード」を追加（入力は「ショートカットの入力」）</li>
+        <li>アクション「URLを開く」を追加し、URL欄に下の文字列を貼って、末尾に「URLエンコード済みのテキスト」変数を付ける</li>
+      </ol>
+      <input readonly value="${esc(appUrl)}?add=" onclick="this.select()">
+      <div class="note">以後は Googleマップでお店を開き「共有 → お店ログに追加」で登録画面が開きます。</div>
+      <div class="note" style="margin-top:8px"><b>パソコン</b>（ブックマークレット）：下の文字列をURLにしたブックマークを作り、Googleマップでお店を開いた状態でクリック</div>
+      <input readonly value="${esc(`javascript:window.open('${appUrl}?add='+encodeURIComponent(location.href))`)}" onclick="this.select()">
+    </div>`;
+}
+
+/* ---------- 登録ダイアログ ---------- */
+let addInfo = {};
+function openAdd(prefill) {
+  addInfo = {};
+  $('#addBody').innerHTML = `
+    <h2>お店を登録</h2>
+    <label class="field"><span>Googleマップの共有リンク（貼り付けると店名を自動入力）</span>
+      <div class="row" style="flex-wrap:nowrap"><input id="addLink" placeholder="https://maps.app.goo.gl/..." style="flex:1;min-width:0">
+      <button class="btn" id="addResolve">読み込む</button></div></label>
+    <label class="field"><span>店名</span><input id="addName" placeholder="店名を入力"></label>
+    <div id="addHit"></div>
+    <div class="grid2">
+      <button class="btn primary" data-add="visited">行った！</button>
+      <button class="btn want" data-add="want">行きたい</button>
+    </div>
+    <div class="row"><label class="note"><input type="checkbox" id="addHere"> 現在地をこのお店の場所として記録</label>
+      <span style="flex:1"></span><button class="btn small" data-add="cancel">閉じる</button></div>`;
+  $('#addDlg').showModal();
+  if (prefill) { $('#addLink').value = prefill; resolveAdd(); }
+}
+
+function showAddHit() {
+  const name = $('#addName').value.trim();
+  const dup = findDuplicate(Object.assign({}, addInfo, { name }));
+  const el = $('#addHit');
+  if (dup) {
+    const n = visitsOf(dup.id).length;
+    el.innerHTML = `<div class="hit">登録済みのお店です（累計 ${n} 回）。「行った！」で来店を1回追加します。</div>`;
+  } else {
+    el.innerHTML = addInfo.address ? `<div class="note">${esc(addInfo.address)}</div>` : '';
+  }
+  return dup;
+}
+
+async function resolveAdd() {
+  const text = $('#addLink').value.trim();
+  if (!text) return;
+  const btn = $('#addResolve');
+  btn.disabled = true; btn.textContent = '読み込み中…';
+  try {
+    addInfo = await api.resolve(text) || {};
+    if (addInfo.name) $('#addName').value = addInfo.name;
+  } catch (e) {
+    addInfo = { mapsUrl: (text.match(/https?:\/\/[^\s]+/) || [''])[0] };
+    $('#addHit').innerHTML = '<div class="note">リンクを読み取れませんでした。店名を入力すればそのまま登録できます。</div>';
+  }
+  if (!$('#addDlg').open) return;
+  btn.disabled = false; btn.textContent = '読み込む';
+  showAddHit();
+}
+
+async function submitAdd(status) {
+  const name = $('#addName').value.trim();
+  if (!name) { $('#addName').focus(); return; }
+  const dup = findDuplicate(Object.assign({}, addInfo, { name }));
+  const useHere = $('#addHere').checked;
+  $('#addDlg').close();
+  if (dup) {
+    if (status === 'visited') addVisit(dup.id); else toast(`「${dup.name}」は登録済みです`);
+    return;
+  }
+  const p = {
+    id: uid(), name, status, genre: '', tags: '', rating: 0, memo: '',
+    address: addInfo.address || '', lat: addInfo.lat == null ? null : addInfo.lat, lng: addInfo.lng == null ? null : addInfo.lng,
+    mapsUrl: addInfo.mapsUrl || '', gid: addInfo.gid || '', createdAt: now(), updatedAt: now()
+  };
+  if (useHere) {
+    try { const pos = await locate(); p.lat = pos.lat; p.lng = pos.lng; } catch (e) { /* 位置なしで登録 */ }
+  }
+  S.places.push(p);
+  if (status === 'visited') {
+    commit([{ op: 'upsert', sheet: 'places', row: p }]);
+    addVisit(p.id);
+  } else {
+    commit([{ op: 'upsert', sheet: 'places', row: p }]);
+    toast(`「${p.name}」を行きたい店に登録しました`);
+  }
+}
+
+/* ---------- 詳細ダイアログ ---------- */
+let detailId = null, detailRating = 0;
+function openDetail(id) {
+  const p = placeById(id);
+  if (!p) return;
+  detailId = id; detailRating = p.rating;
+  const vs = visitsOf(id);
+  $('#detailBody').innerHTML = `
+    <h2>${esc(p.name)}</h2>
+    <div class="row">
+      <a class="btn small" href="${esc(mapsLink(p))}" target="_blank" rel="noopener">Googleマップで開く</a>
+      <a class="btn small" href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(p.lat != null ? p.lat + ',' + p.lng : p.name)}" target="_blank" rel="noopener">経路</a>
+    </div>
+    ${p.address ? `<div class="note">${esc(p.address)}</div>` : ''}
+    <div class="panel">
+      <h2>来店履歴　累計 ${vs.length} 回</h2>
+      <div class="row" style="flex-wrap:nowrap;margin-bottom:8px">
+        <input type="date" id="vDate" value="${today()}" style="flex:none;padding:6px;border:1px solid var(--line);border-radius:8px;background:var(--card)">
+        <input id="vMemo" placeholder="ひとことメモ（食べたもの等）" style="flex:1;min-width:0;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card)">
+        <button class="btn primary small" data-d="visit">＋追加</button>
+      </div>
+      <div class="visits">${vs.map(v => `<div class="visit"><span class="d">${esc(v.date)}</span><span class="m">${esc(v.memo)}</span><button data-d="delVisit" data-id="${esc(v.id)}" aria-label="この来店を削除">✕</button></div>`).join('') || '<div class="note">まだ来店記録がありません</div>'}</div>
+    </div>
+    <label class="field"><span>店名</span><input id="dName" value="${esc(p.name)}"></label>
+    <div class="grid2">
+      <label class="field"><span>状態</span><select id="dStatus">
+        <option value="visited" ${p.status === 'visited' ? 'selected' : ''}>行った</option>
+        <option value="want" ${p.status === 'want' ? 'selected' : ''}>行きたい</option></select></label>
+      <label class="field"><span>ジャンル</span><input id="dGenre" list="genreList" value="${esc(p.genre)}">
+        <datalist id="genreList">${[...new Set(GENRES.concat(S.places.map(x => x.genre).filter(Boolean)))].map(g => `<option value="${esc(g)}">`).join('')}</datalist></label>
+    </div>
+    <div class="field"><span>評価</span><div class="rate" id="dRate"></div></div>
+    <label class="field"><span>タグ（カンマ区切り　例: デート, 個室, ランチ）</span><input id="dTags" value="${esc(p.tags)}"></label>
+    <label class="field"><span>メモ（おすすめメニュー、次に頼みたいもの等）</span><textarea id="dMemo">${esc(p.memo)}</textarea></label>
+    <div class="row">
+      <button class="btn danger small" data-d="delete">このお店を削除</button>
+      <span style="flex:1"></span>
+      <button class="btn" data-d="close">閉じる</button>
+      <button class="btn primary" data-d="save">保存</button>
+    </div>`;
+  drawRate();
+  if (!$('#detailDlg').open) $('#detailDlg').showModal();
+}
+
+function drawRate() {
+  $('#dRate').innerHTML = [1, 2, 3, 4, 5].map(n => `<button type="button" data-rate="${n}" class="${n <= detailRating ? 'on' : ''}" aria-label="星${n}">★</button>`).join('');
+}
+
+function readDetail() {
+  const p = placeById(detailId);
+  p.name = $('#dName').value.trim() || p.name;
+  p.status = $('#dStatus').value;
+  p.genre = $('#dGenre').value.trim();
+  p.tags = $('#dTags').value.trim();
+  p.memo = $('#dMemo').value;
+  p.rating = detailRating;
+  return p;
+}
+
+/* ---------- トースト ---------- */
+let toastTimer, toastUndo;
+function toast(msg, undo) {
+  $('#toastMsg').textContent = msg;
+  toastUndo = undo;
+  $('#toastUndo').hidden = !undo;
+  $('#toast').classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => $('#toast').classList.remove('show'), 6000);
+}
+
+/* ========== イベント ========== */
+function saveUi() { store('ui', { filter: ui.filter, sort: ui.sort, tag: ui.tag }); }
+
+async function ensurePosition() {
+  try { await locate(); return true; } catch (e) { toast('現在地を取得できませんでした（位置情報の許可を確認してください）'); return false; }
+}
+
+document.querySelector('nav').addEventListener('click', e => {
+  const b = e.target.closest('[data-tab]');
+  if (!b) return;
+  ui.tab = b.dataset.tab;
+  document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x === b));
+  ['list', 'map', 'stats'].forEach(t => { $('#tab-' + t).hidden = t !== ui.tab; });
+  render();
+});
+
+$('#addBtn').onclick = () => openAdd();
+$('#sync').onclick = () => { if (queue.length) flush(); else load(); };
+$('#q').oninput = e => { ui.q = e.target.value; renderList(); };
+$('#tag').onchange = e => { ui.tag = e.target.value; saveUi(); renderList(); };
+$('#sort').onchange = async e => {
+  ui.sort = e.target.value; saveUi();
+  if (ui.sort === 'near' && !ui.pos) await ensurePosition();
+  renderList();
+};
+$('#filters').onclick = e => {
+  const b = e.target.closest('[data-filter]');
+  if (b) { ui.filter = b.dataset.filter; saveUi(); renderList(); }
+};
+$('#list').onclick = e => {
+  const card = e.target.closest('.card');
+  const act = e.target.closest('[data-act]');
+  if (!card || !act) return;
+  if (act.dataset.act === 'visit') addVisit(card.dataset.id);
+  else openDetail(card.dataset.id);
+};
+$('#locBtn').onclick = async () => {
+  if (await ensurePosition() && map) {
+    map.setView([ui.pos.lat, ui.pos.lng], 16);
+    L.circleMarker([ui.pos.lat, ui.pos.lng], { radius: 6, color: '#fff', weight: 2, fillColor: '#2f9e44', fillOpacity: 1 }).addTo(markers).bindPopup('現在地');
+  }
+};
+$('#stats').onclick = e => {
+  if (e.target.id === 'apiSave') {
+    if ($('#apiInput').value.trim() && setApiUrl($('#apiInput').value)) location.reload();
+    else toast('Apps Script のウェブアプリURL（' + API_PREFIX + '…/exec）を入れてください');
+    return;
+  }
+  if (e.target.id !== 'roulette') return;
+  const wants = S.places.filter(p => p.status === 'want');
+  const out = $('#rouletteOut');
+  if (!wants.length) { out.textContent = '行きたい店がまだありません'; return; }
+  const p = wants[Math.floor(Math.random() * wants.length)];
+  out.innerHTML = `<a href="#" data-id="${esc(p.id)}" style="color:var(--accent);font-weight:700">${esc(p.name)}</a>${p.genre ? '（' + esc(p.genre) + '）' : ''}`;
+  out.firstChild.onclick = ev => { ev.preventDefault(); openDetail(p.id); };
+};
+
+$('#addBody').addEventListener('click', e => {
+  if (e.target.id === 'addResolve') return resolveAdd();
+  const b = e.target.closest('[data-add]');
+  if (!b) return;
+  if (b.dataset.add === 'cancel') $('#addDlg').close(); else submitAdd(b.dataset.add);
+});
+$('#addBody').addEventListener('input', e => { if (e.target.id === 'addName') showAddHit(); });
+$('#addBody').addEventListener('paste', e => { if (e.target.id === 'addLink') setTimeout(resolveAdd, 0); });
+
+$('#detailBody').addEventListener('click', e => {
+  const r = e.target.closest('[data-rate]');
+  if (r) { const n = Number(r.dataset.rate); detailRating = detailRating === n ? 0 : n; drawRate(); return; }
+  const b = e.target.closest('[data-d]');
+  if (!b) return;
+  const act = b.dataset.d;
+  if (act === 'close') $('#detailDlg').close();
+  else if (act === 'save') { savePlace(readDetail()); $('#detailDlg').close(); toast('保存しました'); }
+  else if (act === 'visit') {
+    const date = $('#vDate').value || today(), memo = $('#vMemo').value.trim();
+    savePlace(readDetail()); // 入力途中の編集内容を失わないよう先に保存
+    addVisit(detailId, date, memo);
+    openDetail(detailId);
+  } else if (act === 'delVisit') { savePlace(readDetail()); deleteVisit(b.dataset.id); openDetail(detailId); }
+  else if (act === 'delete') {
+    const p = placeById(detailId);
+    if (confirm(`「${p.name}」と来店履歴をすべて削除しますか？`)) { deletePlace(detailId); $('#detailDlg').close(); }
+  }
+});
+document.querySelectorAll('dialog').forEach(d => d.addEventListener('click', e => { if (e.target === d) d.close(); }));
+$('#toastUndo').onclick = () => { $('#toast').classList.remove('show'); if (toastUndo) toastUndo(); };
+
+/* ========== 起動 ========== */
+(async function init() {
+  render();
+  await load();
+  if (ui.sort === 'near') locate().then(renderList, () => {});
+  // ?add=<Googleマップのリンク> で開かれたら登録画面を出す（ショートカット／ブックマークレット用）
+  if (HAS_GAS) google.script.url.getLocation(loc => { if (loc.parameter.add) openAdd(loc.parameter.add); });
+  else { const add = new URLSearchParams(location.search).get('add'); if (add) openAdd(add); }
+})();
+</script>
+</body>
+</html>
