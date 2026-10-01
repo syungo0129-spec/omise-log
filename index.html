@@ -165,6 +165,7 @@
   .badge { display: grid; justify-items: center; gap: 3px; text-align: center; font-size: 11px; line-height: 1.3; }
   .badge b { font-size: 12px; }
   .badge.locked { color: var(--sub); }
+  .bgroup { font: 800 13px/1.4 var(--font-display); letter-spacing: .06em; color: var(--sub); margin-top: 6px; }
   .slot { border: 1px solid var(--line); background: var(--card); border-radius: 8px; box-shadow: var(--shadow); padding: 12px; display: flex; gap: 12px; align-items: center; min-height: 76px; }
   .slot .who { flex: 1; min-width: 0; font-weight: 700; overflow-wrap: anywhere; }
   .slot.spin .who { animation: flick .09s linear infinite; }
@@ -578,6 +579,7 @@ function commit(ops) {
   store('queue', queue);
   store('cache', S);
   render();
+  checkBadges();
   flush();
 }
 
@@ -611,6 +613,7 @@ async function load() {
     store('cache', S);
     setSync('ok');
     render();
+    checkBadges(true);
   } catch (e) {
     setSync('error');
   }
@@ -746,12 +749,12 @@ function confetti(x, y, n) {
   })();
 }
 
-function celebrate(p, title, sub) {
+function celebrate(p, title, sub, sealHtml) {
   const old = $('#cele');
   if (old) old.remove();
   const el = document.createElement('div');
   el.id = 'cele';
-  el.innerHTML = `<div class="cele-in"><div class="cele-row"><span class="seal-wrap">${sealSvg(p.name, inkOf(p), 170, {})}</span>
+  el.innerHTML = `<div class="cele-in"><div class="cele-row"><span class="seal-wrap">${sealHtml || sealSvg(p.name, inkOf(p), 170, {})}</span>
     <div class="cele-title">${esc(title).replace(/\d+/, d => '<span class="tcy">' + d + '</span>')}</div></div><div class="cele-sub">${esc(sub)}</div></div>`;
   layer().appendChild(el);
   setTimeout(() => confetti(innerWidth / 2, innerHeight * .4, 110), reduced ? 0 : 260);
@@ -872,12 +875,12 @@ function renderList() {
 
 /* ---------- マップ ---------- */
 let map, markers, mapPts = [];
-const AICHI = [[34.57, 136.67], [35.43, 137.84]]; // 地図を開いたときに映す範囲（愛知県）
+const NAGOYA = [[35.04, 136.80], [35.26, 137.06]]; // 地図を開いたときに映す範囲（名古屋市）
 function renderMap() {
   if (typeof L === 'undefined') { $('#map').innerHTML = '<div class="empty">地図を読み込めませんでした</div>'; return; }
   if (!map) {
     map = L.map('map');
-    map.fitBounds(AICHI);
+    map.fitBounds(NAGOYA);
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
     markers = L.layerGroup().addTo(map);
     map.on('popupopen', e => {
@@ -908,31 +911,128 @@ function renderMap() {
 /* ---------- きろく ---------- */
 const mondayOf = s => { const d = new Date(s + 'T00:00:00'); d.setDate(d.getDate() - (d.getDay() + 6) % 7); return ymd(d); };
 
+// 記念印の分類: [id, 見出し, インクの色]
+const BADGE_GROUPS = [
+  ['meguri', '巡り　たくさんのお店を回る', 'shu'],
+  ['kayoi', '通い　同じお店に通う', 'ai'],
+  ['shina', '品目　いろいろなジャンル', 'kaki'],
+  ['tochi', '土地　あちこちの街へ', 'matsu'],
+  ['koyomi', '暦　続ける・季節を味わう', 'fuji'],
+  ['negai', '願いと目利き', 'ai']
+];
+const badgeInk = b => (BADGE_GROUPS.find(g => g[0] === b.group) || [])[2] || 'shu';
+
 function badgeList(idx) {
-  const counts = Object.values(idx).map(e => e.count);
+  const visitedPlaces = S.places.filter(p => idx[p.id]);
+  const shops = visitedPlaces.length;
+  const counts = visitedPlaces.map(p => idx[p.id].count);
   const maxCount = Math.max(0, ...counts);
-  const visited = S.places.filter(p => p.status === 'visited').length;
-  const genres = new Set(S.places.filter(p => idx[p.id] && p.genre).map(p => p.genre));
-  const weeks = {};
-  S.visits.forEach(v => { const w = mondayOf(v.date); weeks[w] = (weeks[w] || 0) + 1; });
-  const keys = Object.keys(weeks).sort();
-  let streak = 0, best = 0, prev = null;
-  keys.forEach(k => {
+  const regulars = counts.filter(n => n >= 5).length;
+
+  // 来店日ごと・週ごと・月ごとの集計
+  const first = {}, dayShops = {}, weeks = {}, monthVisits = {}, calMonths = new Set(), seasons = new Set();
+  let newYear = false, yearEnd = false, earliest = '';
+  S.visits.forEach(v => {
+    if (!first[v.placeId] || v.date < first[v.placeId]) first[v.placeId] = v.date;
+    (dayShops[v.date] || (dayShops[v.date] = new Set())).add(v.placeId);
+    const w = mondayOf(v.date); weeks[w] = (weeks[w] || 0) + 1;
+    const ym = v.date.slice(0, 7); monthVisits[ym] = (monthVisits[ym] || 0) + 1;
+    const m = Number(v.date.slice(5, 7)), md = v.date.slice(5);
+    calMonths.add(m);
+    seasons.add(m >= 3 && m <= 5 ? 'haru' : m >= 6 && m <= 8 ? 'natsu' : m >= 9 && m <= 11 ? 'aki' : 'fuyu');
+    if (md >= '01-01' && md <= '01-03') newYear = true;
+    if (md === '12-31') yearEnd = true;
+    if (!earliest || v.date < earliest) earliest = v.date;
+  });
+  const newPerMonth = {};
+  Object.values(first).forEach(d => { const ym = d.slice(0, 7); newPerMonth[ym] = (newPerMonth[ym] || 0) + 1; });
+  const maxOf = o => Math.max(0, ...Object.values(o));
+  const hashigo = Math.max(0, ...Object.values(dayShops).map(x => x.size));
+  let streak = 0, bestStreak = 0, prev = null;
+  Object.keys(weeks).sort().forEach(k => {
     const t = new Date(k + 'T00:00:00').getTime();
     streak = prev != null && Math.round((t - prev) / 864e5) === 7 ? streak + 1 : 1;
-    best = Math.max(best, streak); prev = t;
+    bestStreak = Math.max(bestStreak, streak); prev = t;
   });
-  const fulfilled = S.places.some(p => { const vs = visitsOf(p.id); return vs.length && vs[vs.length - 1].date > String(p.createdAt).slice(0, 10); });
-  return [
-    ['初', '初印', '1回押す', S.visits.length >= 1],
-    ['拓', '開拓者', '10軒に行く', visited >= 10],
-    ['常', '常連', '同じ店に5回', maxCount >= 5],
-    ['主', '店の主', '同じ店に10回', maxCount >= 10],
-    ['彩', '食べわけ', '3ジャンル制覇', genres.size >= 3],
-    ['週', '食べ歩き週間', '1週間に3回', Object.values(weeks).some(n => n >= 3)],
-    ['続', '4週連続', '4週つづけて押す', best >= 4],
-    ['叶', '有言実行', '行きたい店に行く', fulfilled]
-  ];
+  const spanDays = earliest ? Math.round((new Date(today() + 'T00:00:00') - new Date(earliest + 'T00:00:00')) / 864e5) : 0;
+
+  // ジャンルと土地（住所から都道府県・市区町村・名古屋の区を読み取る）
+  const genreShops = {}, prefs = new Set(), towns = new Set(), wards = new Set();
+  visitedPlaces.forEach(p => {
+    if (p.genre) genreShops[p.genre] = (genreShops[p.genre] || 0) + 1;
+    const a = String(p.address || '');
+    let m = a.match(/(東京都|北海道|京都府|大阪府|[^\s0-9０-９〒\-]{2,3}県)/);
+    if (m) prefs.add(m[1]);
+    m = a.match(/(?:都|道|府|県)([^\s0-9０-９]+?[市区町村])/) || a.match(/([^\s0-9０-９〒\-]+?市)/);
+    if (m) towns.add(m[1]);
+    m = a.match(/名古屋市([^\s0-9０-９]+?区)/);
+    if (m) wards.add(m[1]);
+  });
+  const fulfilled = visitedPlaces.filter(p => first[p.id] > String(p.createdAt).slice(0, 10)).length;
+  const wants = S.places.filter(p => p.status === 'want').length;
+  const fiveStars = S.places.filter(p => p.rating === 5).length;
+  const rated = S.places.filter(p => p.rating > 0).length;
+  const memos = S.places.filter(p => String(p.memo || '').trim()).length;
+
+  const out = [];
+  const add = (group, id, ch, name, cond, got) => out.push({ group, id, ch, name, cond, got: !!got });
+  // 段階のある記念印。未達成のものには「あと◯」を添える
+  const tiers = (group, key, value, unit, cond, list) => list.forEach(([n, ch, name]) =>
+    add(group, key + n, ch, name, cond(n) + (value >= n ? '' : `・あと${n - value}${unit}`), value >= n));
+
+  tiers('meguri', 'shops', shops, '軒', n => `${n}軒のお店に行く`, [
+    [1, '初', '初印'], [3, '参', '三軒目'], [5, '伍', '五軒巡り'], [10, '拾', '十軒巡り'], [20, '廿', '二十軒巡り'], [30, '卅', '三十軒巡り'],
+    [50, '踏', '五十軒踏破'], [77, '喜', '喜の字'], [88, '遍', '八十八軒巡礼'], [100, '百', '百軒達成'], [150, '豪', '百五十軒'],
+    [200, '弐百', '二百軒'], [300, '参百', '三百軒'], [500, '羅漢', '五百羅漢'], [1000, '千軒', '千軒行脚']]);
+  tiers('meguri', 'newmonth', maxOf(newPerMonth), '軒', n => `ひと月に新しいお店${n}軒`, [[3, '拓', '開拓者'], [5, '開拓', '開拓月間'], [10, '猛進', '猪突猛進']]);
+  tiers('meguri', 'hashigo', hashigo, '軒', n => `1日に${n}軒まわる`, [[2, '梯', 'はしご'], [3, '三梯', '三軒はしご']]);
+  tiers('meguri', 'visits', S.visits.length, '印', n => `印を${n}回押す`, [
+    [10, '十印', '十印'], [50, '五十', '五十印'], [100, '百印', '百印'], [365, '日々', '三百六十五印'], [500, '五百', '五百印'], [1000, '千印', '千印']]);
+
+  tiers('kayoi', 'max', maxCount, '回', n => `同じお店に${n}回`, [
+    [3, '馴', 'おなじみ'], [5, '常', '常連'], [10, '主', '店の主'], [20, '殿', '殿堂入り'], [30, '極', '通いの極み'], [50, '神', '守り神']]);
+  tiers('kayoi', 'regulars', regulars, '軒', n => `5回以上通ったお店が${n}軒`, [[3, '三常', '三店の常連'], [5, '五常', '五店の常連'], [10, '十常', '十店の常連']]);
+
+  tiers('shina', 'genres', Object.keys(genreShops).length, '品目', n => `${n}ジャンルを食べる`, [[3, '彩', '食べわけ'], [5, '五彩', '五品目'], [8, '八彩', '八品目'], [10, '十彩', '十品目']]);
+  [['ラーメン', [[5, '麺', '麺道入門'], [15, '麺道', '麺道皆伝']]], ['カフェ', [[5, '珈', '喫茶めぐり'], [15, '茶人', '茶人']]],
+    ['居酒屋', [[5, '酔', 'のれん巡り'], [15, '酒仙', '酒仙']]], ['寿司', [[3, '鮨', '鮨めぐり'], [10, '鮨通', '鮨通']]],
+    ['和食', [[5, '和', '和食めぐり']]], ['洋食', [[5, '洋', '洋食めぐり']]], ['中華', [[5, '華', '中華めぐり']]],
+    ['焼肉', [[3, '肉', '焼肉めぐり']]], ['カレー', [[5, '辛', 'カレー道']]], ['スイーツ', [[5, '甘', '甘党']]], ['バー', [[3, '宵', '宵の口']]]
+  ].forEach(([g, list]) => tiers('shina', 'g_' + g, genreShops[g] || 0, '軒', n => `${g}のお店${n}軒`, list));
+
+  tiers('tochi', 'wards', wards.size, '区', n => `名古屋市の${n}区で押す`, [[3, '区', '名古屋三区'], [8, '八区', '名古屋八区'], [16, '鯱', '十六区制覇']]);
+  tiers('tochi', 'towns', towns.size, '市町村', n => `${n}つの市区町村で押す`, [[2, '旅', 'となり町へ'], [5, '五市', '五つの街'], [10, '十市', '十の街'], [20, '諸国', '諸国漫遊']]);
+  tiers('tochi', 'prefs', prefs.size, '県', n => `${n}つの都道府県で押す`, [[2, '越境', '県境を越える'], [5, '五県', '五県めぐり'], [10, '十県', '十県めぐり']]);
+
+  tiers('koyomi', 'week', maxOf(weeks), '回', n => `1週間に${n}回`, [[3, '週', '食べ歩き週間'], [5, '週五', '週五の食通']]);
+  tiers('koyomi', 'streak', bestStreak, '週', n => `${n}週つづけて押す`, [[4, '続', '四週連続'], [12, '季続', '十二週連続'], [26, '半年', '半年連続'], [52, '年続', '一年連続']]);
+  tiers('koyomi', 'month', maxOf(monthVisits), '回', n => `ひと月に${n}回`, [[10, '月十', '月に十印'], [20, '月廿', '月に二十印']]);
+  tiers('koyomi', 'cal', calMonths.size, 'か月', n => `1月から12月まで全部の月で押す`, [[12, '暦', '十二か月制覇']]);
+  add('koyomi', 'seasons', '四季', '四季めぐり', '春夏秋冬すべてで押す', seasons.size === 4);
+  add('koyomi', 'year', '周年', '一周年', '最初の印から1年', spanDays >= 365);
+  add('koyomi', 'newyear', '賀', '初ごはん', '三が日に押す', newYear);
+  add('koyomi', 'yearend', '晦', '年越しごはん', '大晦日に押す', yearEnd);
+
+  tiers('negai', 'fulfilled', fulfilled, '軒', n => `行きたいお店に${n}軒行く`, [[1, '叶', '有言実行'], [5, '五叶', '五つの念願'], [10, '十叶', '十の念願'], [30, '満願', '満願成就']]);
+  tiers('negai', 'wants', wants, '軒', n => `行きたいお店を${n}軒ためる`, [[10, '夢', '夢は十軒']]);
+  tiers('negai', 'five', fiveStars, '軒', n => `星5つのお店が${n}軒`, [[1, '星', '五つ星'], [5, '名', '名店五選'], [10, '名鑑', '名店十選']]);
+  tiers('negai', 'rated', rated, '軒', n => `${n}軒に評価を付ける`, [[20, '評', '目利き']]);
+  tiers('negai', 'memos', memos, '軒', n => `${n}軒にメモを書く`, [[10, '筆', '筆まめ']]);
+  return out;
+}
+
+/** 新しく得た記念印があれば祝う。silent は読み込み直後など、記録だけ更新したいとき */
+function checkBadges(silent) {
+  const got = badgeList(visitIndex()).filter(b => b.got);
+  const known = store('badges');
+  store('badges', got.map(b => b.id));
+  if (silent || !known) return;
+  const fresh = got.filter(b => !known.includes(b.id));
+  if (!fresh.length) return;
+  const b = fresh[fresh.length - 1];
+  const show = () => celebrate(null, '記念印', `「${b.name}」を授かりました` + (fresh.length > 1 ? `（ほか${fresh.length - 1}つ）` : ''), sealSvg(b.ch, badgeInk(b), 170, {}));
+  // 来店の祝いが出ているあいだは、それが終わってから
+  setTimeout(() => setTimeout(show, $('#cele') ? 3100 : 500), 60);
 }
 
 function renderStats() {
@@ -978,7 +1078,7 @@ function renderStats() {
       <div class="tiles">
         <div class="tile"><div class="v">${visited}</div><div class="l">行った店</div></div>
         <div class="tile"><div class="v">${S.places.length - visited}</div><div class="l">行きたい店</div></div>
-        <div class="tile"><div class="v">${badges.filter(b => b[3]).length}<small style="font-size:13px">/${badges.length}</small></div><div class="l">記念印</div></div>
+        <div class="tile"><div class="v">${badges.filter(b => b.got).length}<small style="font-size:13px">/${badges.length}</small></div><div class="l">記念印</div></div>
       </div>
     </div>
     <div class="block"><h2>おみくじで決める</h2>
@@ -991,8 +1091,9 @@ function renderStats() {
         <span class="no">${i + 1}</span>${sealOf(p, 40)}<span class="nm">${esc(p.name)}<span class="hbar" style="width:${n / rMax * 100}%;animation-delay:${i * 60}ms"></span></span><span class="n">${n}回</span></button>`).join('')
       : '<div class="note">印を押すとここにランキングが出ます</div>'}</div>
     ${genres.length ? `<div class="block"><h2>ジャンル別の印の数</h2>${genres.map(([g, n], i) => `<div class="grow"><span>${esc(g)}</span><span><span class="hbar" style="display:block;width:${n / gMax * 100}%;animation-delay:${i * 50}ms"></span></span><span class="n">${n}</span></div>`).join('')}</div>` : ''}
-    <div class="block"><h2>記念印</h2><div class="badges">${badges.map(([ch, name, cond, got]) => `<div class="badge${got ? '' : ' locked'}">
-        ${sealSvg(got ? ch : '？', 'shu', 56, { inked: got })}<b>${name}</b><span>${cond}</span></div>`).join('')}</div></div>
+    <div class="block"><h2>記念印　${badges.filter(b => b.got).length} / ${badges.length}</h2>
+      ${BADGE_GROUPS.map(([gid, label, ink]) => `<div class="bgroup">${label}</div><div class="badges">${badges.filter(b => b.group === gid).map(b => `<div class="badge${b.got ? '' : ' locked'}">
+        ${sealSvg(b.ch, ink, 56, { inked: b.got })}<b>${b.name}</b><span>${b.cond}</span></div>`).join('')}</div>`).join('')}</div>
     <details class="more"><summary>連携と設定</summary><div class="inner">
       ${HAS_GAS ? '' : API_URL ? `<div class="block"><h2>ほかの端末で使う</h2>
         <div class="note">使いたい端末で下の設定用リンクを1回開くと、同じデータにつながります。データを読み書きできる鍵なので、他人には見せないでください。</div>
