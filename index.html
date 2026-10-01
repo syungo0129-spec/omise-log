@@ -65,9 +65,9 @@
 
   /* ---------- 絞り込み ---------- */
   /* 暖簾: 竿に3枚の布を掛け、選んだ布だけ染まって少し長く垂れる */
-  .noren { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 9px 8px 0; }
+  .noren { perspective: 520px; perspective-origin: 50% 0; position: relative; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 9px 8px 0; }
   .noren::before { content: ''; position: absolute; z-index: 2; left: 0; right: 0; top: 3px; height: 6px; border-radius: 3px; background: var(--ink); }
-  .nr { position: relative; align-self: start; transform-origin: top center; display: grid; justify-items: center; gap: 6px; padding: 13px 4px 10px; background: var(--card); border: 1px solid var(--line); border-top: 0; border-radius: 0 0 3px 3px; color: var(--sub); font: 800 15px/1.2 var(--font-display); letter-spacing: .12em; transition: padding .3s cubic-bezier(.3, 1.4, .5, 1), background .25s, color .25s; }
+  .nr { position: relative; align-self: start; transform-origin: top center; display: grid; justify-items: center; gap: 6px; padding: 13px 4px 10px; background: var(--card); border: 1px solid var(--line); border-top: 0; border-radius: 0 0 3px 3px; color: var(--sub); font: 800 15px/1.2 var(--font-display); letter-spacing: .12em; }
   .nr::before, .nr::after { content: ''; position: absolute; top: -8px; width: 8px; height: 8px; background: inherit; border: inherit; border-bottom: 0; border-top: 0; }
   .nr::before { left: 20%; }
   .nr::after { right: 20%; }
@@ -76,9 +76,7 @@
   .nr.all.on { background: var(--ink); }
   .nr.visited.on { background: var(--shu); }
   .nr.want.on { background: var(--ai); }
-  .noren.sway .nr { animation: noren .95s ease-out; }
-  .noren.sway .nr:nth-child(2) { animation-delay: 70ms; }
-  .noren.sway .nr:nth-child(3) { animation-delay: 140ms; }
+  .nr.kuguru { animation: kuguru 1.25s both; will-change: transform; backface-visibility: hidden; }
   /* 正の字 */
   .tally { display: inline-flex; flex-wrap: wrap; gap: 3px; }
   .tally path { fill: none; stroke: var(--line); stroke-width: 2.3; stroke-linecap: round; }
@@ -108,6 +106,7 @@
   #list { display: grid; gap: 10px; }
   .shop { border: 1px solid var(--line); display: grid; grid-template-columns: 1fr auto; align-items: center; background: var(--card); border-radius: 8px; box-shadow: var(--shadow); }
   #list.enter .shop { animation: nijimi .55s ease-out backwards; animation-delay: calc(min(var(--n), 10) * 40ms); }
+  #list.enter.pass .shop { animation: hairu .5s cubic-bezier(.2, .8, .2, 1) backwards; animation-delay: calc(260ms + min(var(--n), 8) * 35ms); }
   .shop.thud { animation: thud .4s ease-out; }
   .shop-main { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: center; text-align: left; padding: 12px 4px 12px 12px; min-width: 0; border-radius: 8px; }
   .shop-text { display: grid; gap: 1px; min-width: 0; }
@@ -293,7 +292,18 @@
 
   @keyframes slam { 0% { transform: scale(2.6) rotate(-16deg); opacity: 0; } 55% { transform: scale(.9) rotate(2deg); opacity: 1; } 100% { transform: none; } }
   @keyframes ripple { from { transform: scale(.5); opacity: .45; } to { transform: scale(1.7); opacity: 0; } }
-  @keyframes noren { 0% { transform: none; } 22% { transform: rotate(3.5deg) skewX(-4deg); } 46% { transform: rotate(-2.4deg) skewX(3deg); } 72% { transform: rotate(1.1deg) skewX(-1deg); } 100% { transform: none; } }
+  /* 手で押し分けてくぐる: 布のすそが奥へ持ち上がり、通り抜けたあと、ゆっくり振り子のように収まる */
+  @keyframes kuguru {
+    0% { transform: rotateX(0); animation-timing-function: cubic-bezier(.2, .7, .3, 1); }
+    26% { transform: rotateX(-64deg); animation-timing-function: cubic-bezier(.45, 0, .55, 1); }
+    40% { transform: rotateX(-58deg); animation-timing-function: cubic-bezier(.45, 0, .55, 1); }
+    66% { transform: rotateX(9deg); animation-timing-function: cubic-bezier(.45, 0, .55, 1); }
+    82% { transform: rotateX(-3.5deg); animation-timing-function: cubic-bezier(.45, 0, .55, 1); }
+    93% { transform: rotateX(1.2deg); animation-timing-function: cubic-bezier(.45, 0, .55, 1); }
+    100% { transform: rotateX(0); }
+  }
+  /* くぐった先の一覧は、奥から手前へすっと現れる */
+  @keyframes hairu { from { opacity: 0; transform: translateY(-8px) scale(.975); } }
   @keyframes kaku { to { stroke-dashoffset: 0; } }
   @keyframes nijimi { from { opacity: 0; filter: blur(7px); transform: translateY(5px); } }
   @keyframes fude { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 -10% 0); } }
@@ -628,7 +638,7 @@ let S = { places: [], visits: [], appUrl: '' };
 let queue = store('queue') || [];
 let flushing = false;
 const ui = Object.assign({ filter: 'all', sort: 'recent', tag: '' }, store('ui') || {}, { tab: 'list', q: '', pos: null });
-let listAnim = true, slamId = null;
+let listAnim = true, slamId = null, norenPass = false;
 
 function normalize(data) {
   data.places.forEach(p => {
@@ -936,8 +946,7 @@ function renderList() {
   const counts = { all: S.places.length, visited: 0, want: 0 };
   S.places.forEach(p => counts[p.status]++);
   const segs = [['all', 'すべて'], ['visited', '行った'], ['want', '行きたい']];
-  $('#seg').classList.toggle('sway', listAnim);
-  $('#seg').innerHTML = segs.map(([k, l]) => `<button class="nr ${k}${ui.filter === k ? ' on' : ''}" data-filter="${k}" aria-pressed="${ui.filter === k}"><span class="nr-t">${l}</span><span class="nr-c">${counts[k]}</span></button>`).join('');
+  $('#seg').innerHTML = segs.map(([k, l]) => `<button class="nr ${k}${ui.filter === k ? ' on' + (norenPass ? ' kuguru' : '') : ''}" data-filter="${k}" aria-pressed="${ui.filter === k}"><span class="nr-t">${l}</span><span class="nr-c">${counts[k]}</span></button>`).join('');
 
   const labels = new Set();
   S.places.forEach(p => { if (p.genre) labels.add(p.genre); tagsOf(p).forEach(t => labels.add(t)); });
@@ -967,6 +976,8 @@ function renderList() {
 
   const list = $('#list');
   list.classList.toggle('enter', listAnim);
+  list.classList.toggle('pass', norenPass);
+  norenPass = false;
   listAnim = false;
   list.innerHTML = items.length ? items.map((p, n) => {
     const c = cnt(p), ink = inkOf(p), onCard = c ? (c - 1) % 10 + 1 : 0;
@@ -1625,7 +1636,7 @@ $('#shelf').onclick = async e => {
 };
 $('#seg').onclick = e => {
   const b = e.target.closest('[data-filter]');
-  if (b) { ui.filter = b.dataset.filter; saveUi(); listAnim = true; renderList(); }
+  if (b && b.dataset.filter !== ui.filter) { ui.filter = b.dataset.filter; saveUi(); listAnim = true; norenPass = true; renderList(); }
 };
 $('#tags').onclick = e => {
   const b = e.target.closest('[data-tag]');
