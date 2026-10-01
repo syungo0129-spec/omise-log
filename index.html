@@ -168,6 +168,15 @@
   .yr-title { font-size: 30px; }
   .kv { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
   .kv span { color: var(--sub); }
+  .res { display: grid; grid-template-columns: auto 1fr auto auto; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .res-t { display: grid; min-width: 0; font-size: 12px; color: var(--sub); }
+  .res-t b { color: var(--ink); font: 800 15px/1.4 var(--font-display); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .res-t span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .res .btn.small { padding: 8px 10px; white-space: nowrap; }
+  #addResults:empty { display: none; }
+  details.alt { border-top: 1px solid var(--line); padding-top: 10px; }
+  details.alt summary { cursor: pointer; font-size: 13px; color: var(--sub); }
+  .alt-in { display: grid; gap: 12px; padding-top: 12px; }
   .empty { text-align: center; color: var(--sub); padding: 28px 8px; display: grid; gap: 12px; justify-items: center; }
   .empty b { color: var(--ink); font-size: 17px; }
 
@@ -283,7 +292,7 @@
   .field textarea { min-height: 70px; resize: vertical; }
   .joined { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
   .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .preview { border: 1px solid var(--line); display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; background: var(--card); border-radius: 8px; padding: 14px; box-shadow: var(--shadow); min-height: 104px; }
+  .preview { border: 1px solid var(--line); display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; background: var(--card); border-radius: 8px; padding: 10px 14px; box-shadow: var(--shadow); min-height: 86px; }
   .preview .pv-name { font-family: var(--font-display); font-weight: 800; font-size: 18px; overflow-wrap: anywhere; }
   .preview .seal-wrap.pop { animation: pop .35s cubic-bezier(.3, 1.6, .5, 1); }
   .head { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; }
@@ -1507,32 +1516,165 @@ function renderWardLayer(idx) {
 }
 
 /* ---------- 登録シート ---------- */
-let addInfo = {};
+let addInfo = {}, addResults = [];
+
+/* ---------- お店をさがす（OpenStreetMap。無料・キー不要） ---------- */
+const OSM_FOOD = /^(restaurant|cafe|fast_food|bar|pub|food_court|ice_cream|biergarten|bakery|confectionery|pastry|deli|coffee|tea)$/;
+function osmGenre(type, cuisine) {
+  const c = String(cuisine || '').toLowerCase();
+  if (/ramen|noodle/.test(c)) return 'ラーメン';
+  if (/sushi/.test(c)) return '寿司';
+  if (/chinese|dumpling|gyoza/.test(c)) return '中華';
+  if (/curry|indian/.test(c)) return 'カレー';
+  if (/yakiniku|barbecue|bbq|korean/.test(c)) return '焼肉';
+  if (/izakaya|yakitori|kushi/.test(c)) return '居酒屋';
+  if (/coffee|tea/.test(c) || type === 'cafe' || type === 'coffee') return 'カフェ';
+  if (/cake|dessert|ice_cream|donut|crepe|pancake/.test(c) || /^(ice_cream|bakery|confectionery|pastry)$/.test(type)) return 'スイーツ';
+  if (/japanese|udon|soba|tempura|tonkatsu|unagi|donburi|okonomiyaki|teishoku|kaiseki/.test(c)) return '和食';
+  if (/italian|french|pizza|pasta|burger|steak|western|spanish|american/.test(c)) return '洋食';
+  if (type === 'bar') return 'バー';
+  if (type === 'pub') return '居酒屋';
+  return '';
+}
+
+async function searchPlaces(q) {
+  // 現在地（なければ名古屋周辺）に近い結果を優先する。範囲の外も検索はされる
+  const c = ui.pos || { lat: 35.17, lng: 136.91 };
+  const box = [c.lng - .25, c.lat + .2, c.lng + .25, c.lat - .2].map(n => n.toFixed(3)).join(',');
+  const url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&extratags=1&namedetails=1&limit=12&countrycodes=jp&accept-language=ja&viewbox=' + box + '&q=' + encodeURIComponent(q);
+  const list = await (await fetch(url)).json();
+  return list.map(r => {
+    const a = r.address || {}, nd = r.namedetails || {};
+    return {
+      name: nd['name:ja'] || nd.name || r.name || String(r.display_name || '').split(',')[0],
+      address: [a.province || a.state, a.city || a.town || a.village, a.suburb || a.city_district, a.quarter || a.neighbourhood].filter(Boolean).join(''),
+      lat: Number(r.lat), lng: Number(r.lon), genre: osmGenre(r.type, (r.extratags || {}).cuisine),
+      gid: 'osm:' + r.osm_type + r.osm_id, food: OSM_FOOD.test(r.type)
+    };
+  }).filter(r => r.name);
+}
+
+async function nearbyPlaces(pos) {
+  const around = `(around:300,${pos.lat},${pos.lng})`;
+  const query = `[out:json][timeout:12];(nwr${around}[amenity~"^(restaurant|cafe|fast_food|bar|pub|food_court|ice_cream|biergarten)$"][name];nwr${around}[shop~"^(bakery|confectionery|pastry|deli|coffee|tea)$"][name];);out center tags 60;`;
+  const res = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: 'data=' + encodeURIComponent(query), headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+  return (await res.json()).elements.map(e => {
+    const t = e.tags || {}, lat = e.lat != null ? e.lat : (e.center || {}).lat, lng = e.lon != null ? e.lon : (e.center || {}).lon;
+    return {
+      name: t['name:ja'] || t.name,
+      address: [t['addr:province'], t['addr:city'], t['addr:suburb'], t['addr:quarter'] || t['addr:neighbourhood']].filter(Boolean).join(''),
+      lat, lng, genre: osmGenre(t.amenity || t.shop, t.cuisine), gid: 'osm:' + e.type + e.id, food: true
+    };
+  }).filter(r => r.name && r.lat != null);
+}
+
+function showResults(list, emptyMsg) {
+  const d = r => ui.pos && r.lat != null ? distance(ui.pos, r) : Infinity;
+  // 飲食店を先に、近い順に
+  addResults = list.slice().sort((a, b) => (b.food - a.food) || (d(a) - d(b))).slice(0, 12);
+  $('#addResults').innerHTML = addResults.length ? addResults.map((r, i) => {
+    const dup = findDuplicate(r), n = dup ? visitsOf(dup.id).length : 0;
+    const sub = [dup ? `登録済み${n ? '・' + n + '回' : ''}` : '', esc(r.genre), isFinite(d(r)) ? fmtDist(d(r)) : '', esc(r.address)].filter(Boolean).join(' · ');
+    return `<div class="res">${sealSvg(r.name, inkOf(dup || r), 38, { fx: false, inked: !dup || dup.status !== 'want' })}
+      <span class="res-t"><b>${esc(r.name)}</b><span>${sub}</span></span>
+      <button class="btn stampbtn small" data-pick="${i}:visited">行った</button>
+      ${dup ? '' : `<button class="btn small" data-pick="${i}:want">行きたい</button>`}</div>`;
+  }).join('') + '<div class="note">お店のデータ: © OpenStreetMap contributors</div>'
+    : `<div class="note">${emptyMsg}</div>`;
+}
+
+async function runSearch() {
+  const q = $('#addQuery').value.trim();
+  if (!q) return;
+  $('#addResults').innerHTML = '<div class="note">さがしています…</div>';
+  try {
+    const list = await searchPlaces(q);
+    if (!$('#addDlg').open) return;
+    showResults(list, '見つかりませんでした。地名を足す（例: 店名 栄）か、下の「リンクを貼る・自分で入力する」から登録できます');
+    if (!list.length) { $('#addName').value = q; updateAddPreview(false); $('#addAlt').open = true; }
+  } catch (e) {
+    $('#addResults').innerHTML = '<div class="note">検索できませんでした。通信を確かめるか、下から登録してください</div>';
+  }
+}
+
+async function loadNearby() {
+  if (!ui.pos && !(await ensurePosition())) return;
+  store('geoOk', true);
+  $('#addResults').innerHTML = '<div class="note">近くのお店をさがしています…</div>';
+  try {
+    const list = await nearbyPlaces(ui.pos);
+    if ($('#addDlg').open) showResults(list, '300m以内にお店が見つかりませんでした。店名でさがしてください');
+  } catch (e) {
+    if ($('#addDlg').open) $('#addResults').innerHTML = '<div class="note">近くのお店を読み込めませんでした。店名でさがしてください</div>';
+  }
+}
+
+/** 検索結果から1タップで登録する */
+function pickResult(r, status, ev) {
+  const dup = findDuplicate(r);
+  closeSheet($('#addDlg'));
+  listAnim = false;
+  if (dup) {
+    if (status === 'visited') addVisit(dup.id, { x: ev.clientX, y: ev.clientY }); else toast(`「${dup.name}」は登録済みです`);
+    return;
+  }
+  const p = {
+    id: uid(), name: r.name, status, genre: r.genre || '', tags: '', rating: 0, memo: '',
+    address: r.address || '', lat: r.lat, lng: r.lng, mapsUrl: '', gid: r.gid, createdAt: now(), updatedAt: now()
+  };
+  S.places.push(p);
+  slamId = p.id;
+  commit([{ op: 'upsert', sheet: 'places', row: p }]);
+  if (status === 'visited') addVisit(p.id);
+  else { confetti(innerWidth / 2, innerHeight / 2, 24); toast(`「${p.name}」を行きたいお店に登録しました`); }
+  // 住所が無い結果は、座標から住所を補う（保存先につながっているときだけ）
+  if (!p.address && p.lat != null && (HAS_GAS || API_URL)) {
+    api.resolve(`https://www.google.com/maps?q=${p.lat},${p.lng}`).then(info => {
+      if (info && info.address && placeById(p.id)) { p.address = info.address; savePlace(p); }
+    }).catch(() => {});
+  }
+}
+
 function openAdd(prefill) {
-  addInfo = {};
+  addInfo = {}; addResults = [];
   $('#addBody').innerHTML = `
     <div class="grab"></div>
     <h2>お店を登録</h2>
-    <div class="preview"><span id="addSeal" class="seal-wrap">${sealSvg('？', 'sub', 76, { inked: false })}</span>
-      <div><div class="pv-name" id="addPvName">店名を入れると判子ができます</div><div class="note" id="addHit"></div></div></div>
-    <label class="field"><span>Googleマップの共有リンク（貼ると店名が入ります）</span>
-      <span class="joined"><input id="addLink" placeholder="https://maps.app.goo.gl/…" inputmode="url" autocomplete="off">
-      <button class="btn" id="addPaste" type="button">貼り付け</button></span></label>
-    <label class="field"><span>店名</span><input id="addName" placeholder="店名を入力" autocomplete="off"></label>
-    <div class="two">
-      <button class="btn stampbtn big" data-add="visited">行った！</button>
-      <button class="btn solid big" data-add="want">行きたい</button>
-    </div>
-    <label class="check"><input type="checkbox" id="addHere"> いまいる場所をこのお店の位置として記録</label>`;
+    <form class="joined" id="addForm"><input class="inline-input" id="addQuery" type="search" placeholder="店名でさがす（例: コメダ 栄）" autocomplete="off" enterkeyhint="search"><button class="btn solid" id="addSearch">さがす</button></form>
+    <div><button class="btn small" id="addNear" type="button">いまいる場所の近くのお店を出す</button></div>
+    <div id="addResults"></div>
+    <details class="alt" id="addAlt"${prefill ? ' open' : ''}><summary>Googleマップのリンクを貼る・自分で入力する</summary><div class="alt-in">
+      <div class="preview"><span id="addSeal" class="seal-wrap">${sealSvg('？', 'sub', 64, { inked: false })}</span>
+        <div><div class="pv-name" id="addPvName">店名を入れると判子ができます</div><div class="note" id="addHit"></div></div></div>
+      <label class="field"><span>Googleマップの共有リンク（貼ると店名が入ります）</span>
+        <span class="joined"><input id="addLink" placeholder="https://maps.app.goo.gl/…" inputmode="url" autocomplete="off">
+        <button class="btn" id="addPaste" type="button">貼り付け</button></span></label>
+      <label class="field"><span>店名</span><input id="addName" placeholder="店名を入力" autocomplete="off"></label>
+      <div class="two">
+        <button class="btn stampbtn big" data-add="visited">行った！</button>
+        <button class="btn solid big" data-add="want">行きたい</button>
+      </div>
+      <label class="check"><input type="checkbox" id="addHere"> いまいる場所をこのお店の位置として記録</label>
+    </div></details>`;
   $('#addDlg').showModal();
   if (prefill) { $('#addLink').value = prefill; resolveAdd(); }
+  else if (ui.pos) loadNearby(); // 現在地が分かっていれば、近くのお店をすぐ並べる
 }
+
+$('#addBody').addEventListener('submit', e => { e.preventDefault(); runSearch(); });
+$('#addBody').addEventListener('click', e => {
+  if (e.target.id === 'addNear') return loadNearby();
+  const pick = e.target.closest('[data-pick]');
+  if (!pick) return;
+  const [i, status] = pick.dataset.pick.split(':');
+  if (addResults[i]) pickResult(addResults[i], status, e);
+});
 
 function updateAddPreview(pop) {
   const name = $('#addName').value.trim();
   const dup = findDuplicate(Object.assign({}, addInfo, { name }));
   const sealEl = $('#addSeal');
-  sealEl.innerHTML = name ? sealSvg(name, inkOf(dup || { name, genre: '' }), 76, { fx: true }) : sealSvg('？', 'sub', 76, { inked: false });
+  sealEl.innerHTML = name ? sealSvg(name, inkOf(dup || { name, genre: '' }), 64, {}) : sealSvg('？', 'sub', 64, { inked: false });
   if (pop) { sealEl.classList.remove('pop'); void sealEl.offsetWidth; sealEl.classList.add('pop'); }
   $('#addPvName').textContent = name || '店名を入れると判子ができます';
   $('#addHit').textContent = dup ? `登録済み（累計 ${visitsOf(dup.id).length} 回）。「行った！」で印を1つ押します`
