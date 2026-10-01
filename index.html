@@ -64,11 +64,37 @@
   .meter i { display: block; height: 100%; border-radius: 4px; background: var(--shu); transition: width .7s cubic-bezier(.2, .8, .2, 1); }
 
   /* ---------- 絞り込み ---------- */
-  .seg { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); background: var(--wash); border-radius: 8px; padding: 4px; }
-  .seg::before { content: ''; position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc((100% - 8px) / 3); border-radius: 5px; background: var(--card); box-shadow: var(--shadow); transform: translateX(calc(var(--i, 0) * 100%)); transition: transform .32s cubic-bezier(.3, 1.4, .5, 1); }
-  .seg button { position: relative; padding: 8px 0; font-weight: 700; font-size: 14px; color: var(--sub); transition: color .2s; }
-  .seg button.on { color: var(--ink); }
-  .seg button span { font-weight: 500; font-size: 12px; margin-left: 3px; }
+  /* 暖簾: 竿に3枚の布を掛け、選んだ布だけ染まって少し長く垂れる */
+  .noren { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 9px 8px 0; }
+  .noren::before { content: ''; position: absolute; z-index: 2; left: 0; right: 0; top: 3px; height: 6px; border-radius: 3px; background: var(--ink); }
+  .nr { position: relative; align-self: start; transform-origin: top center; display: grid; justify-items: center; gap: 6px; padding: 13px 4px 10px; background: var(--card); border: 1px solid var(--line); border-top: 0; border-radius: 0 0 3px 3px; color: var(--sub); font: 800 15px/1.2 var(--font-display); letter-spacing: .12em; transition: padding .3s cubic-bezier(.3, 1.4, .5, 1), background .25s, color .25s; }
+  .nr::before, .nr::after { content: ''; position: absolute; top: -8px; width: 8px; height: 8px; background: inherit; border: inherit; border-bottom: 0; border-top: 0; }
+  .nr::before { left: 20%; }
+  .nr::after { right: 20%; }
+  .nr-c { min-width: 26px; height: 22px; padding: 0 7px; border-radius: 11px; border: 1px solid currentColor; font: 700 12px/20px var(--font-body); letter-spacing: 0; font-variant-numeric: tabular-nums; }
+  .nr.on { padding-bottom: 18px; color: var(--on-ink); border-color: transparent; }
+  .nr.all.on { background: var(--ink); }
+  .nr.visited.on { background: var(--shu); }
+  .nr.want.on { background: var(--ai); }
+  .noren.sway .nr { animation: noren .95s ease-out; }
+  .noren.sway .nr:nth-child(2) { animation-delay: 70ms; }
+  .noren.sway .nr:nth-child(3) { animation-delay: 140ms; }
+  /* 正の字 */
+  .tally { display: inline-flex; flex-wrap: wrap; gap: 3px; }
+  .tally path { fill: none; stroke: var(--line); stroke-width: 2.3; stroke-linecap: round; }
+  .tally path.on { stroke: currentColor; }
+  .tally path.draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: kaku .42s ease-out forwards; }
+  .tally.big { gap: 6px; color: var(--shu); }
+  .tally.big path { stroke-width: 2.6; }
+  .hero.month { grid-template-columns: 1fr; gap: 8px; }
+  .hero-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .hero.month .hero-num { font-size: 30px; }
+  .shop-count .tally { align-self: center; align-items: center; }
+  .tally .times { font: 700 12px/1 var(--font-body); color: var(--sub); margin: 0 2px 0 -1px; }
+  .shop-count .kai { white-space: nowrap; }
+  /* 下の切り替え: 選んだ画面の一字に朱の角印が押される */
+  .navseal { display: grid; place-items: center; width: 31px; height: 31px; border-radius: 6px; font: 400 20px/1 var(--font-seal); color: var(--sub); }
+  nav button.on .navseal { background: var(--shu); color: var(--card); transform: rotate(-5deg); animation: slam .45s cubic-bezier(.2, 1.5, .4, 1); }
   .finder { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
   .finder input, .finder select { border: 1px solid var(--line); background: var(--card); border-radius: 6px; padding: 9px 12px; font-size: 16px; min-width: 0; }
   .finder select { font-size: 13px; padding: 9px 6px; max-width: 128px; }
@@ -267,6 +293,8 @@
 
   @keyframes slam { 0% { transform: scale(2.6) rotate(-16deg); opacity: 0; } 55% { transform: scale(.9) rotate(2deg); opacity: 1; } 100% { transform: none; } }
   @keyframes ripple { from { transform: scale(.5); opacity: .45; } to { transform: scale(1.7); opacity: 0; } }
+  @keyframes noren { 0% { transform: none; } 22% { transform: rotate(3.5deg) skewX(-4deg); } 46% { transform: rotate(-2.4deg) skewX(3deg); } 72% { transform: rotate(1.1deg) skewX(-1deg); } 100% { transform: none; } }
+  @keyframes kaku { to { stroke-dashoffset: 0; } }
   @keyframes nijimi { from { opacity: 0; filter: blur(7px); transform: translateY(5px); } }
   @keyframes fude { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 -10% 0); } }
   @keyframes fusumaOutL { to { transform: translateX(-12%); opacity: 0; } }
@@ -333,16 +361,16 @@
   <header><h1><span class="mark" aria-hidden="true">印</span>ごち印帖</h1><span id="sync"></span></header>
 
   <section id="tab-list" style="display:grid;gap:14px">
-    <div class="hero">
-      <div class="hero-num"><span id="heroNum">0</span><small>回</small></div>
+    <div class="hero month">
+      <div class="hero-top"><span class="hero-label" id="heroLabel"></span><span class="hero-num"><span id="heroNum">0</span><small>回</small></span></div>
+      <div class="tally big" id="heroTally"></div>
       <div class="hero-side">
-        <span class="hero-label" id="heroLabel"></span>
         <span class="hero-level" id="heroLevel"></span>
         <div class="meter"><i id="heroMeter" style="width:0"></i></div>
         <span class="hero-label" id="heroNext"></span>
       </div>
     </div>
-    <div class="seg" id="seg"></div>
+    <div class="noren" id="seg"></div>
     <div class="finder">
       <input type="search" id="q" placeholder="店名・タグでさがす" aria-label="検索">
       <select id="sort" aria-label="並べ替え">
@@ -373,14 +401,11 @@
 </div>
 
 <nav>
-  <button data-tab="list" class="on">
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="6"/><path d="M5 20h14M8 20v-2.5M16 20v-2.5"/></svg>印帖
+  <button data-tab="list" class="on"><span class="navseal" aria-hidden="true">帖</span>印帖
   </button>
-  <button data-tab="map">
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.500C5 14.800 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>地図
+  <button data-tab="map"><span class="navseal" aria-hidden="true">図</span>地図
   </button>
-  <button data-tab="stats">
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V11M12 20V4M19 20v-6"/></svg>記録
+  <button data-tab="stats"><span class="navseal" aria-hidden="true">録</span>記録
   </button>
   <button id="fab" aria-label="お店を登録">
     <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
@@ -512,6 +537,26 @@ function sealSvg(name, ink, size, opt) {
   const paint = solid ? 'var(--card)' : 'currentColor';
   const fx = inked && opt.fx !== false ? ` filter="url(#inkfx${h % 3})"` : '';
   return `<svg class="seal${inked ? '' : ' blank'}" viewBox="0 0 100 100" width="${size}" height="${size}" style="color:var(--${inked ? ink : 'sub'});transform:rotate(${h % 13 - 6}deg)" aria-hidden="true"><g${fx}>${frame}<g fill="${paint}" stroke="${paint}" stroke-width=".7" stroke-linejoin="round" font-family="'Zen Antique','Hiragino Mincho ProN','Yu Mincho',serif">${text}</g></g></svg>`;
+}
+// 正の字: 1回の来店を1画として数える。total 画ぶんの字を並べ、n 画までを墨で書く。
+// from 番目以降の画は、筆で書くように順に現れる
+const SEI = ['M4.2 5.7L19.8 4.7', 'M12 5.2L12.3 19', 'M12.3 12L19.2 11.4', 'M6.8 11L7 19.2', 'M2.8 19.6L21.2 18.6'];
+function tally(n, total, size, from) {
+  let html = '';
+  for (let g = 0; g < Math.ceil(total / 5); g++) {
+    html += `<svg viewBox="0 0 24 24" width="${size}" height="${size}" aria-hidden="true">${SEI.map((d, k) => {
+      const i = g * 5 + k, on = i < n, draw = on && i >= from;
+      return `<path d="${d}" pathLength="1" class="${on ? 'on' : ''}${draw ? ' draw' : ''}"${draw ? ` style="animation-delay:${200 + (i - from) * 110}ms"` : ''}/>`;
+    }).join('')}</svg>`;
+  }
+  return html;
+}
+// 一覧用の正の字: 回数そのものを表す。正が3つ以上になったら「正×3」とまとめ、端数の画だけ別に書く
+function tallyCount(c, size, animate) {
+  const full = Math.floor(c / 5), rem = c % 5, from = animate ? c - 1 : 99;
+  if (full <= 2) return tally(c, Math.max(5, Math.ceil(c / 5) * 5), size, from);
+  // まとめ表示では、正1字ぶん（5画）と端数の字を別々に描く
+  return tally(5, 5, size, animate && !rem ? 4 : 99) + `<span class="times">×${full}</span>` + (rem ? tally(rem, 5, size, animate ? rem - 1 : 99) : '');
 }
 const sealOf = (p, size, opt) => sealSvg(p.name, inkOf(p), size, Object.assign({ inked: p.status !== 'want' }, opt));
 
@@ -877,7 +922,11 @@ function renderList() {
   const idx = visitIndex();
   renderShelf(idx);
   const month = today().slice(0, 7);
-  countTo($('#heroNum'), S.visits.filter(v => v.date.startsWith(month)).length);
+  const mCount = S.visits.filter(v => v.date.startsWith(month)).length;
+  countTo($('#heroNum'), mCount);
+  // 初回は全部の画を順に書き、以後は増えた画だけを書き足す
+  $('#heroTally').innerHTML = tally(mCount, Math.max(5, Math.ceil(mCount / 5) * 5), 42, shown.tally == null ? 0 : shown.tally);
+  shown.tally = mCount;
   const lv = levelOf(S.visits.length), mo = new Date().getMonth();
   $('#heroLabel').textContent = `${WAFU_MONTHS[mo]}（${mo + 1}月）に押した印`;
   $('#heroLevel').textContent = `番付　${lv.title}`;
@@ -887,8 +936,8 @@ function renderList() {
   const counts = { all: S.places.length, visited: 0, want: 0 };
   S.places.forEach(p => counts[p.status]++);
   const segs = [['all', 'すべて'], ['visited', '行った'], ['want', '行きたい']];
-  $('#seg').style.setProperty('--i', segs.findIndex(s => s[0] === ui.filter));
-  $('#seg').innerHTML = segs.map(([k, l]) => `<button class="${ui.filter === k ? 'on' : ''}" data-filter="${k}">${l}<span>${counts[k]}</span></button>`).join('');
+  $('#seg').classList.toggle('sway', listAnim);
+  $('#seg').innerHTML = segs.map(([k, l]) => `<button class="nr ${k}${ui.filter === k ? ' on' : ''}" data-filter="${k}" aria-pressed="${ui.filter === k}"><span class="nr-t">${l}</span><span class="nr-c">${counts[k]}</span></button>`).join('');
 
   const labels = new Set();
   S.places.forEach(p => { if (p.genre) labels.add(p.genre); tagsOf(p).forEach(t => labels.add(t)); });
@@ -921,15 +970,14 @@ function renderList() {
   listAnim = false;
   list.innerHTML = items.length ? items.map((p, n) => {
     const c = cnt(p), ink = inkOf(p), onCard = c ? (c - 1) % 10 + 1 : 0;
-    const meta = [esc(p.genre), stars(p.rating), isFinite(dist(p)) ? fmtDist(dist(p)) : ''].filter(Boolean).join(' · ');
+    const meta = [esc(p.genre), stars(p.rating), isFinite(dist(p)) ? fmtDist(dist(p)) : '', c ? '最終 ' + shortDate(last(p)) : ''].filter(Boolean).join(' · ');
     return `<article class="shop${slamId === p.id ? ' thud' : ''}" data-id="${esc(p.id)}" style="--n:${n};color:var(--${ink})">
       <button class="shop-main" data-act="detail">
         <span class="seal-wrap${slamId === p.id ? ' slam' : ''}">${sealOf(p, 58)}</span>
         <span class="shop-text" style="color:var(--ink)">
           <span class="shop-name">${esc(p.name)}</span>
           ${meta ? `<span class="shop-meta">${meta}</span>` : ''}
-          ${c ? `<span class="shop-count"><b>${c}</b>回<i class="rank" style="font-style:normal">${rankOf(c)}</i><span>最終 ${shortDate(last(p))}</span></span>
-            <span class="dots" style="color:var(--${ink})">${Array.from({ length: 10 }, (_, i) => `<i class="${i < onCard ? 'f' : ''}"></i>`).join('')}</span>`
+          ${c ? `<span class="shop-count"><span class="tally" style="color:var(--${ink})">${tallyCount(c, 20, slamId === p.id)}</span><span class="kai"><b>${c}</b>回</span><i class="rank" style="font-style:normal">${rankOf(c)}</i></span>`
           : '<span class="shop-count">行きたいお店・まだ押していません</span>'}
         </span>
       </button>
